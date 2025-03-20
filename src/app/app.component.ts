@@ -1,12 +1,12 @@
 import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { TraitVisualizationComponent } from './trait-visualization/trait-visualization.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
-  templateUrl: './app.component.html',
-  styleUrl: './app.component.scss'
+  standalone: true,
+  imports: [TraitVisualizationComponent],
+  template: `
+     <app-trait-visualization></app-trait-visualization>
+  `,
 })
-export class AppComponent {
-  title = 'solar-system-of-people';
-}
+export class AppComponent {}
