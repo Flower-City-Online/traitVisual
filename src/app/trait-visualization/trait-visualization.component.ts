@@ -48,7 +48,7 @@ class Node extends THREE.Object3D {
     this.isCentralNode = data.isCentral;
 
     this.attributes = data.attributes
-      ? Object.values(data.attributes)
+      ? [...Object.values(data.attributes)]
       : Array.from({ length: 10 }, () => Math.floor(Math.random() * 99));
 
     // Use the provided color from NODE_DATA
@@ -155,7 +155,8 @@ class Node extends THREE.Object3D {
     if (this.swap) {
       const currentSwap = this.swap;
       const currentTime = performance.now();
-      let progress = (currentTime - currentSwap.startTime) / currentSwap.duration;
+      let progress =
+        (currentTime - currentSwap.startTime) / currentSwap.duration;
       if (progress >= 1) {
         progress = 1;
         this.velocity.set(0, 0, 0);
@@ -166,23 +167,23 @@ class Node extends THREE.Object3D {
       );
       return;
     }
-  
+
     // Skip update for central node
     if (this.isCentralNode) return;
-  
+
     let force = new THREE.Vector3(0, 0, 0);
     const centralNode = nodes.find((n) => n.isCentralNode);
     if (centralNode) {
       force.add(this.calculateAttractionForce(centralNode));
     }
-  
+
     // Add repulsion forces from other non-central nodes.
     nodes.forEach((other) => {
       if (other !== this && !other.isCentralNode) {
         force.add(this.calculateRepulsionForce(other));
       }
     });
-  
+
     this.velocity.add(force);
     const maxSpeed = 0.1;
     if (this.velocity.length() > maxSpeed) {
@@ -190,22 +191,34 @@ class Node extends THREE.Object3D {
     }
     // Apply damping to the velocity
     this.velocity.multiplyScalar(this.options.dampingFactor);
-  
+
     // Predict next position
     const predictedPos = this.position.clone().add(this.velocity);
-  
+
     // Define boundaries (adjust these values to suit your needs)
     const boundaryMin = new THREE.Vector3(-20, -20, -20);
     const boundaryMax = new THREE.Vector3(20, 20, 20);
-  
+
     // Clamp predicted position within boundaries
-    predictedPos.x = THREE.MathUtils.clamp(predictedPos.x, boundaryMin.x, boundaryMax.x);
-    predictedPos.y = THREE.MathUtils.clamp(predictedPos.y, boundaryMin.y, boundaryMax.y);
-    predictedPos.z = THREE.MathUtils.clamp(predictedPos.z, boundaryMin.z, boundaryMax.z);
-  
-    // Optional: If you want the sphere to bounce off the boundary instead of stopping, 
+    predictedPos.x = THREE.MathUtils.clamp(
+      predictedPos.x,
+      boundaryMin.x,
+      boundaryMax.x
+    );
+    predictedPos.y = THREE.MathUtils.clamp(
+      predictedPos.y,
+      boundaryMin.y,
+      boundaryMax.y
+    );
+    predictedPos.z = THREE.MathUtils.clamp(
+      predictedPos.z,
+      boundaryMin.z,
+      boundaryMax.z
+    );
+
+    // Optional: If you want the sphere to bounce off the boundary instead of stopping,
     // you could reflect the velocity here.
-  
+
     // Check for collisions (if necessary) and update position
     let tooClose = false;
     nodes.forEach((other) => {
@@ -222,7 +235,6 @@ class Node extends THREE.Object3D {
       this.velocity.set(0, 0, 0);
     }
   }
-  
 }
 
 class Cluster extends THREE.Object3D {
@@ -234,7 +246,7 @@ class Cluster extends THREE.Object3D {
     this.options = {
       kAttraction: 2,
       kRepulsion: 2,
-      dampingFactor: 0.6,
+      dampingFactor: 0.7,
       minDistance: 0.1,
       stopDistance: 2,
       maxAttrValue: 100,
@@ -312,6 +324,10 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
 
   get allNodes(): Node[] {
     return this.cluster ? this.cluster.nodes : [];
+  }
+
+  trackByIndex(index: number, item: any): number {
+    return index;
   }
 
   private initScene(): void {
@@ -470,7 +486,7 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
       (node) => node.userData['id'].toString() === selectedId
     );
     this.selectedAttrNode = node || null;
-  } 
+  }
 
   // Updates an attribute for the currently editable node.
   onAttributeChange(index: number, event: Event): void {

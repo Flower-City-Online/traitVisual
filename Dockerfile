@@ -1,22 +1,31 @@
-# Stage 1: Build the Angular application
-FROM node:22 AS build
+# Stage 1: Build Angular application
+FROM node:22-slim AS build
 WORKDIR /app
 
-# Copy package files and install dependencies
-COPY package*.json ./
+# Install dependencies first to leverage Docker cache
+COPY package.json package-lock.json ./
 RUN npm install
 
-# Copy the rest of the source code and build the project for production
+# Copy source files
 COPY . .
-RUN npm run build -- --configuration production
 
-#-----------------------------------------------------------------------
+# Build Angular application
+RUN npm run build
 
-# Stage 2: Serve the built application with Nginx
-FROM nginx:alpine
-# Copy build output to Nginx's default public folder
-COPY --from=build /app/dist/solar-system-of-people /usr/share/nginx/html
+# Stage 2: Serve using NGINX
+FROM nginx:1.25-alpine
 
-# Expose port 80 for the container
+# Remove default NGINX config
+RUN rm -rf /etc/nginx/conf.d/*
+
+# Copy built assets from previous stage
+COPY --from=build /app/dist/solar-system-of-people/browser /usr/share/nginx/html
+
+# Copy custom NGINX config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose port 80 (default HTTP port)
 EXPOSE 80
+
+# Start NGINX
 CMD ["nginx", "-g", "daemon off;"]

@@ -1,6 +1,11 @@
 /* Canvas remains full viewport */
+app-wrapper {
+  display: flex;
+  width: 100vw;
+}
+
 canvas {
-  display: block;
+  display: flex;
   width: calc(100vw - 320px);
   height: 100vh;
   overflow: hidden;

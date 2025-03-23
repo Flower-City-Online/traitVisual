@@ -1,54 +1,61 @@
-<canvas #rendererCanvas></canvas>
 <div #tooltip class="tooltip"></div>
 
-<aside class="sidebar">
-  <!-- Central Node Dropdown: selects the node to become central -->
-  <div class="dropdown-wrapper">
-    <label for="central-dropdown" class="label">Central Node</label>
-    <select
-      #dropdown
-      (change)="onDropdownChange($event)"
-      class="dropdown central-dropdown"
-    >
-      <option *ngFor="let node of cluster?.nodes; let i = index" [value]="i">
-        {{ node.userData["name"] || "Node " + (i + 1) }}
-      </option>
-    </select>
+<div class="app-wrapper">
+  <canvas #rendererCanvas></canvas>
 
-    <!-- Attribute Editing Dropdown: now includes the central node -->
-    <label for="attr-dropdown" class="label"
-      >Select Node To Edit Attribute</label
-    >
-    <select
-      #attrDropdown
-      (change)="onAttrDropdownChange($event)"
-      class="dropdown attr-dropdown"
-    >
-      <option *ngFor="let node of allNodes" [value]="node.userData['id']">
-        {{ node.userData["name"] || "Node " + node.userData["id"] }}
-      </option>
-    </select> 
-  </div>
+  <aside class="sidebar">
+    <!-- Central Node Dropdown: selects the node to become central -->
+    <div class="dropdown-wrapper">
+      <label for="central-dropdown" class="label">Central Node</label>
+      <select
+        #dropdown
+        (change)="onDropdownChange($event)"
+        class="dropdown central-dropdown"
+      >
+        <option *ngFor="let node of cluster?.nodes; let i = index" [value]="i">
+          {{ node.userData["name"] || "Node " + (i + 1) }}
+        </option>
+      </select>
 
-  <!-- Single Attributes Panel: shows attributes for the node selected in the attribute dropdown,
-        falling back to the central node if none is selected -->
-  <div class="attributes-panel" *ngIf="editableNode">
-    <h3>Adjust Attributes for {{ editableNode.userData["name"] }}</h3>
-    <div
-      *ngFor="let attr of editableNode.attributes; let i = index"
-      class="attribute-list"
-    >
-      <label>
-        Attribute {{ i + 1 }}:
-        <input
-          type="range"
-          min="0"
-          max="100"
-          [value]="attr"
-          (input)="onAttributeChange(i, $event)"
-        />
-        <span>{{ editableNode.attributes[i] }}</span>
-      </label>
+      <!-- Attribute Editing Dropdown: now includes the central node -->
+      <label for="attr-dropdown" class="label"
+        >Select Node To Edit Attribute</label
+      >
+      <select
+        #attrDropdown
+        (change)="onAttrDropdownChange($event)"
+        class="dropdown attr-dropdown"
+      >
+        <option *ngFor="let node of allNodes" [value]="node.userData['id']">
+          {{ node.userData["name"] || "Node " + node.userData["id"] }}
+        </option>
+      </select>
     </div>
-  </div>
-</aside>
+
+    <!-- Single Attributes Panel: shows attributes for the node selected in the attribute dropdown,
+        falling back to the central node if none is selected -->
+    <div class="attributes-panel" *ngIf="editableNode">
+      <h3>Adjust Attributes for {{ editableNode.userData["name"] }}</h3>
+      <div
+        *ngFor="
+          let attr of editableNode.attributes;
+          let i = index;
+          trackBy: trackByIndex
+        "
+        class="attribute-list"
+      >
+        <label>
+          Attribute {{ i + 1 }}:
+          <input
+            type="range"
+            min="0"
+            max="100"
+            [(ngModel)]="editableNode.attributes[i]"
+            (ngModelChange)="onAttributeChange(i, $event)"
+          />
+          <span>{{ editableNode.attributes[i] }}</span>
+        </label>
+      </div>
+    </div>
+  </aside>
+</div>
