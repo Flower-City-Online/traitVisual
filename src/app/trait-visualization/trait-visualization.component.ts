@@ -274,7 +274,7 @@ class Cluster extends THREE.Object3D {
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './trait-visualization.component.html',
-  styleUrl: './trait-visualization.component.scss',
+  styleUrls: ['./trait-visualization.component.scss'],
 })
 export class TraitVisualizationComponent implements OnInit, AfterViewInit {
   @ViewChild('rendererCanvas', { static: true }) canvasRef!: ElementRef;
@@ -293,6 +293,11 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
   // Holds the node whose attributes are being edited.
   selectedAttrNode: Node | null = null;
 
+  // New properties for drag functionality:
+  draggingNode: Node | null = null;
+  dragPlane: THREE.Plane = new THREE.Plane();
+  dragOffset: THREE.Vector3 = new THREE.Vector3();
+
   constructor(private renderer2: Renderer2, private ngZone: NgZone) {}
 
   ngOnInit(): void {
@@ -302,10 +307,17 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
 
   ngAfterViewInit(): void {
     this.animate();
-    this.renderer2.listen('window', 'mousemove', (event: MouseEvent) =>
-      this.onMouseMove(event)
-    );
+
+    // Tooltip mousemove listener (skip updating tooltip if dragging)
+    this.renderer2.listen('window', 'mousemove', (event: MouseEvent) => this.onMouseMove(event));
     window.addEventListener('resize', () => this.onWindowResize());
+
+    // Add drag listeners to the canvas
+    const canvas = this.canvasRef.nativeElement;
+    this.renderer2.listen(canvas, 'mousedown', (event: MouseEvent) => this.onDragStart(event));
+    this.renderer2.listen(canvas, 'mousemove', (event: MouseEvent) => this.onDragMove(event));
+    this.renderer2.listen(canvas, 'mouseup', (event: MouseEvent) => this.onDragEnd(event));
+    this.renderer2.listen(canvas, 'mouseleave', (event: MouseEvent) => this.onDragEnd(event));
   }
 
   get editableNode(): Node | null {
@@ -400,7 +412,9 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
+  // Update tooltip only if not dragging
   private onMouseMove(event: MouseEvent): void {
+    if (this.draggingNode) return;
     this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
     this.tooltipRef.nativeElement.style.left = event.clientX + 10 + 'px';
@@ -408,6 +422,7 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
   }
 
   private checkHover(): void {
+    if (this.draggingNode) return;
     this.raycaster.setFromCamera(this.mouse, this.camera);
     if (!this.cluster) return;
     const intersects = this.raycaster.intersectObjects(
@@ -438,6 +453,57 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
       }, 200);
     }
   }
+
+  // --- Drag Functionality ---
+
+  private onDragStart(event: MouseEvent): void {
+    event.preventDefault();
+    const canvas = this.canvasRef.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    this.raycaster.setFromCamera(mouse, this.camera);
+    const intersects = this.raycaster.intersectObjects(this.cluster.children, true);
+    if (intersects.length > 0) {
+      this.draggingNode = intersects[0].object.parent as Node;
+      // Disable OrbitControls while dragging
+      this.controls.enabled = false;
+      // Set up the drag plane using the camera's direction and the intersection point
+      const planeNormal = this.camera.getWorldDirection(new THREE.Vector3()).clone().negate();
+      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, intersects[0].point);
+      // Compute the offset between the intersection point and the node's position
+      this.dragOffset.copy(intersects[0].point).sub(this.draggingNode.position);
+    }
+  }
+
+  private onDragMove(event: MouseEvent): void {
+    if (!this.draggingNode) return;
+    event.preventDefault();
+    const canvas = this.canvasRef.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    this.raycaster.setFromCamera(mouse, this.camera);
+    const intersection = new THREE.Vector3();
+    if (this.raycaster.ray.intersectPlane(this.dragPlane, intersection)) {
+      // Update the node's position by subtracting the initial offset
+      this.draggingNode.position.copy(intersection.sub(this.dragOffset));
+    }
+  }
+
+  private onDragEnd(event: MouseEvent): void {
+    if (!this.draggingNode) return;
+    event.preventDefault();
+    this.draggingNode = null;
+    // Re-enable OrbitControls when dragging ends
+    this.controls.enabled = true;
+  }
+
+  // --- End Drag Functionality ---
 
   // Handles changing the central node.
   onDropdownChange(event: Event): void {
