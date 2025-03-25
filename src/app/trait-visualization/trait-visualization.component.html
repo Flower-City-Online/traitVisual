@@ -4,7 +4,26 @@
   <canvas #rendererCanvas></canvas>
 
   <aside class="sidebar">
-    <!-- Central Node Dropdown: selects the node to become central -->
+    <div class="visibility-panel" *ngIf="cluster?.nodes">
+      <h3>Toggle Sphere Visibility</h3>
+      <div class="checkbox-grid">
+        <div
+          *ngFor="let node of cluster.nodes; let i = index"
+          class="checkbox-list"
+        >
+          <label>
+            <input
+              type="checkbox"
+              style="margin-right: 8px"
+              [checked]="node.mesh.visible"
+              (change)="onVisibilityChange($event, node)"
+            />
+            {{ node.userData["name"] || "Node " + (i + 1) }}
+          </label>
+        </div>
+      </div>
+    </div>
+
     <div class="dropdown-wrapper">
       <label for="central-dropdown" class="label">Central Node</label>
       <select
@@ -17,23 +36,53 @@
         </option>
       </select>
 
-      <!-- Attribute Editing Dropdown: now includes the central node -->
-      <label for="attr-dropdown" class="label"
-        >Select Node To Edit Attribute</label
-      >
+      <!-- New Preferences Panel for the Central Node -->
+      <div class="preferences-panel" *ngIf="currentCentral">
+        <h3>
+          Edit Preferences for {{ currentCentral.userData["name"] }} (Central)
+        </h3>
+        <div
+          *ngFor="
+            let pref of currentCentral.preferences;
+            let i = index;
+            trackBy: trackByIndex
+          "
+          class="attribute-list"
+        >
+          <label>
+            Preference {{ i + 1 }}:
+            <input
+              type="range"
+              min="0"
+              max="100"
+              [(ngModel)]="currentCentral.preferences[i]"
+              (ngModelChange)="onPreferenceChange(i, $event)"
+            />
+            <span>{{ currentCentral.preferences[i] }}</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Attribute Editing Dropdown: excludes the central node -->
+      <label for="attr-dropdown" class="label">
+        Select Node To Edit Attribute
+      </label>
       <select
         #attrDropdown
         (change)="onAttrDropdownChange($event)"
         class="dropdown attr-dropdown"
       >
-        <option *ngFor="let node of allNodes" [value]="node.userData['id']">
+        <option
+          *ngFor="let node of nonCentralNodes"
+          [value]="node.userData['id']"
+        >
           {{ node.userData["name"] || "Node " + node.userData["id"] }}
         </option>
       </select>
     </div>
 
     <!-- Single Attributes Panel: shows attributes for the node selected in the attribute dropdown,
-        falling back to the central node if none is selected -->
+         falling back to the central node if none is selected -->
     <div class="attributes-panel" *ngIf="editableNode">
       <h3>Adjust Attributes for {{ editableNode.userData["name"] }}</h3>
       <div
@@ -57,5 +106,16 @@
         </label>
       </div>
     </div>
+
+    <!-- New Checkbox for Node Count Toggle -->
+    <!-- <div class="checkbox-wrapper">
+      <label for="toggle-nodes" class="label">Boom</label>
+      <input
+        type="checkbox"
+        id="toggle-nodes"
+        [(ngModel)]="increaseNodes"
+        (change)="onNodesToggle($event)"
+      />
+    </div> -->
   </aside>
 </div>

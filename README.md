@@ -67,23 +67,53 @@ This guide will help you run the Solar System of People application using Docker
 ### Prerequisites
 - Docker Desktop installed
 - PowerShell (or any terminal)
-- Chrome browser
+- Browser (Chrome, Edge etc)
 
 ### 1. Install and Launch Docker Desktop
-Download and install Docker Desktop from [https://www.docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop).  
-After installation, launch Docker Desktop from your applications.
+
+- Download and install Docker Desktop from 
+
+[https://www.docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop).  
+
+- Checkbox Recommended use WSL 2 instead of Hyper-V
+- After installation, launch Docker Desktop from your applications.
+- Accept terms, use recommended settings and Click Finish
+- Give it admin previliges
+- Sign up with your account Google/GitHub/Microsoft
+- Create a username and click sign up
+- Proceed to docker
+- Skip survey
+
+- First Error "Docker Engine Stopped", maybe because no distro is installed on wsl, confirm with...
+```
+wsl
+```
+
+- Install a distro
+```
+wsl --install -d Ubuntu
+```
+ 
+- To check list of distros and WSL version (wsl2 is the most used)
+```
+wsl --list --verbose
+```
 
 ### 2. Pull the Docker Image
 Open PowerShell and run:
 ```
-docker pull hamid6426/solar-system-of-people-new:new
+docker pull hamid6426/solar-system-of-people:latest
 ```
 
 ### 3. Run the Docker Container
 Execute this command in PowerShell to run the container on port 8085:
 ```
-docker run -d -p 8085:80 hamid6426/solar-system-of-people-new:new
+docker run -d -p 8085:80 hamid6426/solar-system-of-people:latest
 ```
+
+#### This prompt may appear
+Name: Window security alert
+Simply make checkbox for public network to true and click Accept
 
 ### 4. Access the Application
 Open Chrome and visit:
@@ -100,7 +130,7 @@ docker ps
 Expected output:
 ```
 CONTAINER ID   IMAGE                                      COMMAND                  CREATED       STATUS       PORTS                  NAMES
-ced43fe1517d   hamid6426/solar-system-of-people-new:new   "/docker-entrypoint.…"   2 hours ago   Up 2 hours   0.0.0.0:8085->80/tcp   loving_kare
+ced43fe1517d   hamid6426/solar-system-of-people:latest   "/docker-entrypoint.…"   2 hours ago   Up 2 hours   0.0.0.0:8085->80/tcp   loving_kare
 ```
 
 ### Troubleshooting

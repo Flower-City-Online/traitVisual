@@ -11,8 +11,7 @@ import {
 import * as THREE from 'three';
 import { FormsModule } from '@angular/forms';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { nodeData } from './node-data';
-import { INodeData, IHumanAttributes } from './node-data';
+import { INodeData, IHumanAttributes, nodeData } from './node-data';
 
 interface ClusterOptions {
   kAttraction: number;
@@ -33,6 +32,7 @@ interface SwapAnimation {
 class Node extends THREE.Object3D {
   options: ClusterOptions;
   attributes: number[];
+  preferences: number[];
   velocity: THREE.Vector3;
   preference: number = 0;
   isCentralNode: boolean;
@@ -51,10 +51,14 @@ class Node extends THREE.Object3D {
       ? [...Object.values(data.attributes)]
       : Array.from({ length: 10 }, () => Math.floor(Math.random() * 99));
 
+    this.preferences = data.preferences
+      ? [...Object.values(data.preferences)]
+      : Array.from({ length: 10 }, () => Math.floor(Math.random() * 99));
+
     // Use the provided color from NODE_DATA
     const sphereColor = new THREE.Color(data.color);
     this.mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.5, 32, 32),
+      new THREE.SphereGeometry(0.2, 32, 32),
       new THREE.MeshStandardMaterial({
         color: sphereColor,
         metalness: 0.5,
@@ -78,25 +82,9 @@ class Node extends THREE.Object3D {
     }
   }
 
-  // Calculates compatibility with a given central node based on attributes.
+  // Updated compatibility: non-central node compares its attributes with the central node’s preferences
   calculateCompatibility(centralNode: Node): number {
-    if (!centralNode.attributes || !this.attributes) return 0;
-
-    const weights: Record<keyof IHumanAttributes, number> = {
-      intelligence: 1,
-      empathy: 1,
-      creativity: 1,
-      sociability: 1,
-      resilience: 1,
-      curiosity: 1,
-      adaptability: 1,
-      motivation: 1,
-      integrity: 1,
-      leadership: 1,
-    };
-
-    let sumDiff = 0;
-    let maxDiff = 0;
+    if (!this.attributes) return 0;
 
     const attributeKeys: (keyof IHumanAttributes)[] = [
       'intelligence',
@@ -111,11 +99,17 @@ class Node extends THREE.Object3D {
       'leadership',
     ];
 
+    let sumDiff = 0;
+    let maxDiff = 0;
+    // For the central node, use its preferences if it is central
+    const centralValues = centralNode.isCentralNode
+      ? centralNode.preferences
+      : centralNode.attributes;
+
     for (let i = 0; i < attributeKeys.length; i++) {
-      const key = attributeKeys[i];
-      const diff = Math.abs(this.attributes[i] - centralNode.attributes[i]);
-      sumDiff += diff * weights[key];
-      maxDiff += 100 * weights[key]; // assuming attributes are on a 0-100 scale
+      const diff = Math.abs(this.attributes[i] - centralValues[i]);
+      sumDiff += diff; // Assuming a weight of 1 per attribute
+      maxDiff += 100;
     }
 
     const compatibility = 1 - sumDiff / maxDiff;
@@ -130,9 +124,28 @@ class Node extends THREE.Object3D {
     );
     const distance = displacement.length();
     const forceMagnitude =
-      (this.options.kAttraction * compatibility) / (distance + 10);
+      (this.options.kAttraction * compatibility) / (distance + 8);
     return displacement.normalize().multiplyScalar(forceMagnitude);
   }
+
+  // calculateAttractionForce(otherNode: Node): THREE.Vector3 {
+  //   const compatibility = this.calculateCompatibility(otherNode);
+  //   const displacement = new THREE.Vector3().subVectors(
+  //     otherNode.position,
+  //     this.position
+  //   );
+  //   const distance = displacement.length();
+
+  //   // Avoid attraction if the nodes are too close
+  //   if (distance < this.options.minDistance) {
+  //     return new THREE.Vector3(0, 0, 0);
+  //   }
+
+  //   // Attraction force is proportional to compatibility and inversely proportional to distance
+  //   const forceMagnitude =
+  //     (this.options.kAttraction * compatibility) / (distance + 1);
+  //   return displacement.normalize().multiplyScalar(forceMagnitude);
+  // }
 
   calculateRepulsionForce(otherNode: Node): THREE.Vector3 {
     const displacement = new THREE.Vector3().subVectors(
@@ -244,9 +257,9 @@ class Cluster extends THREE.Object3D {
   constructor(nodeData: INodeData[], options?: Partial<ClusterOptions>) {
     super();
     this.options = {
-      kAttraction: 2,
-      kRepulsion: 2,
-      dampingFactor: 0.7,
+      kAttraction: 4,
+      kRepulsion: 4,
+      dampingFactor: 0.3,
       minDistance: 0.1,
       stopDistance: 2,
       maxAttrValue: 100,
@@ -282,6 +295,9 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
   @ViewChild('dropdown', { static: true }) dropdownRef!: ElementRef;
   @ViewChild('attrDropdown', { static: true }) attrDropdownRef!: ElementRef;
 
+  public increaseNodes: boolean = false;
+  public originalNodeData: INodeData[] = nodeData;
+
   scene!: THREE.Scene;
   camera!: THREE.PerspectiveCamera;
   renderer!: THREE.WebGLRenderer;
@@ -309,15 +325,25 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
     this.animate();
 
     // Tooltip mousemove listener (skip updating tooltip if dragging)
-    this.renderer2.listen('window', 'mousemove', (event: MouseEvent) => this.onMouseMove(event));
+    this.renderer2.listen('window', 'mousemove', (event: MouseEvent) =>
+      this.onMouseMove(event)
+    );
     window.addEventListener('resize', () => this.onWindowResize());
 
     // Add drag listeners to the canvas
     const canvas = this.canvasRef.nativeElement;
-    this.renderer2.listen(canvas, 'mousedown', (event: MouseEvent) => this.onDragStart(event));
-    this.renderer2.listen(canvas, 'mousemove', (event: MouseEvent) => this.onDragMove(event));
-    this.renderer2.listen(canvas, 'mouseup', (event: MouseEvent) => this.onDragEnd(event));
-    this.renderer2.listen(canvas, 'mouseleave', (event: MouseEvent) => this.onDragEnd(event));
+    this.renderer2.listen(canvas, 'mousedown', (event: MouseEvent) =>
+      this.onDragStart(event)
+    );
+    this.renderer2.listen(canvas, 'mousemove', (event: MouseEvent) =>
+      this.onDragMove(event)
+    );
+    this.renderer2.listen(canvas, 'mouseup', (event: MouseEvent) =>
+      this.onDragEnd(event)
+    );
+    this.renderer2.listen(canvas, 'mouseleave', (event: MouseEvent) =>
+      this.onDragEnd(event)
+    );
   }
 
   get editableNode(): Node | null {
@@ -350,7 +376,7 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
       0.1,
       1000
     );
-    this.camera.position.z = 35;
+    this.camera.position.z = 12;
 
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvasRef.nativeElement,
@@ -366,17 +392,6 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(10, 10, 10);
     this.scene.add(directionalLight);
-
-    // Optional bounding box.
-    // const boxGeo = new THREE.BoxGeometry(21, 21, 21);
-    // const boxMat = new THREE.MeshBasicMaterial({
-    //   color: 0xffffff,
-    //   wireframe: true,
-    //   transparent: true,
-    //   opacity: 0.2,
-    // });
-    // const boundingBox = new THREE.Mesh(boxGeo, boxMat);
-    // this.scene.add(boundingBox);
   }
 
   private loadNodes(): void {
@@ -465,14 +480,23 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
       -((event.clientY - rect.top) / rect.height) * 2 + 1
     );
     this.raycaster.setFromCamera(mouse, this.camera);
-    const intersects = this.raycaster.intersectObjects(this.cluster.children, true);
+    const intersects = this.raycaster.intersectObjects(
+      this.cluster.children,
+      true
+    );
     if (intersects.length > 0) {
       this.draggingNode = intersects[0].object.parent as Node;
       // Disable OrbitControls while dragging
       this.controls.enabled = false;
       // Set up the drag plane using the camera's direction and the intersection point
-      const planeNormal = this.camera.getWorldDirection(new THREE.Vector3()).clone().negate();
-      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, intersects[0].point);
+      const planeNormal = this.camera
+        .getWorldDirection(new THREE.Vector3())
+        .clone()
+        .negate();
+      this.dragPlane.setFromNormalAndCoplanarPoint(
+        planeNormal,
+        intersects[0].point
+      );
       // Compute the offset between the intersection point and the node's position
       this.dragOffset.copy(intersects[0].point).sub(this.draggingNode.position);
     }
@@ -564,5 +588,65 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
       // For non-central nodes, this helps to "reheat" the simulation.
       this.editableNode.velocity.add(new THREE.Vector3(0.02, 0.02, 0.02));
     }
+  }
+
+  onPreferenceChange(index: number, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const newValue = Number(input.value);
+    if (this.currentCentral) {
+      this.currentCentral.preferences[index] = newValue;
+      // Optionally, add a small impulse to show updated forces
+      this.currentCentral.velocity.add(new THREE.Vector3(0.02, 0.02, 0.02));
+    }
+  }
+
+  onNodesToggle(event: Event): void {
+    // Determine new node data based on checkbox state.
+    let newNodeData: INodeData[];
+    if (this.increaseNodes) {
+      // Double the number of nodes by appending copies with new IDs and slight offset adjustments.
+      newNodeData = [
+        ...this.originalNodeData,
+        ...this.originalNodeData.map((node, index) => {
+          return {
+            ...node,
+            id: node.id + this.originalNodeData.length,
+            name: node.name + ' copy',
+            position: [
+              node.position[0] + Math.random() * 5, // add a random offset
+              node.position[1] + Math.random() * 5,
+              node.position[2] + Math.random() * 5,
+            ] as [number, number, number], // Cast as a tuple
+          };
+        }),
+      ];
+    } else {
+      // Revert back to the original node data.
+      newNodeData = this.originalNodeData;
+    }
+
+    // Remove the existing cluster from the scene.
+    if (this.cluster) {
+      this.scene.remove(this.cluster);
+    }
+
+    // Create a new Cluster instance with the updated data.
+    this.cluster = new Cluster(newNodeData);
+    this.scene.add(this.cluster);
+
+    // (Optional) Reapply central node settings if needed.
+    const newCentral =
+      this.cluster.nodes.find((node) => node.isCentralNode) ||
+      this.cluster.nodes[0];
+    newCentral.setCentralNode(true, 5);
+    newCentral.mesh.scale.set(2, 2, 2);
+
+    // Reset the selected attribute node.
+    this.selectedAttrNode = null;
+  }
+  onVisibilityChange(event: Event, node: Node): void {
+    const checkbox = event.target as HTMLInputElement;
+    // Toggle the visibility of the sphere's mesh.
+    node.mesh.visible = checkbox.checked;
   }
 }
