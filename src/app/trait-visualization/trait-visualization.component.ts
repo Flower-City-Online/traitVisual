@@ -58,7 +58,7 @@ class Node extends THREE.Object3D {
     // Use the provided color from NODE_DATA
     const sphereColor = new THREE.Color(data.color);
     this.mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.2, 32, 32),
+      new THREE.SphereGeometry(0.1, 64, 64),
       new THREE.MeshStandardMaterial({
         color: sphereColor,
         metalness: 0.5,
@@ -124,28 +124,9 @@ class Node extends THREE.Object3D {
     );
     const distance = displacement.length();
     const forceMagnitude =
-      (this.options.kAttraction * compatibility) / (distance + 8);
+      (this.options.kAttraction * compatibility) / (distance + 1);
     return displacement.normalize().multiplyScalar(forceMagnitude);
   }
-
-  // calculateAttractionForce(otherNode: Node): THREE.Vector3 {
-  //   const compatibility = this.calculateCompatibility(otherNode);
-  //   const displacement = new THREE.Vector3().subVectors(
-  //     otherNode.position,
-  //     this.position
-  //   );
-  //   const distance = displacement.length();
-
-  //   // Avoid attraction if the nodes are too close
-  //   if (distance < this.options.minDistance) {
-  //     return new THREE.Vector3(0, 0, 0);
-  //   }
-
-  //   // Attraction force is proportional to compatibility and inversely proportional to distance
-  //   const forceMagnitude =
-  //     (this.options.kAttraction * compatibility) / (distance + 1);
-  //   return displacement.normalize().multiplyScalar(forceMagnitude);
-  // }
 
   calculateRepulsionForce(otherNode: Node): THREE.Vector3 {
     const displacement = new THREE.Vector3().subVectors(
@@ -257,11 +238,11 @@ class Cluster extends THREE.Object3D {
   constructor(nodeData: INodeData[], options?: Partial<ClusterOptions>) {
     super();
     this.options = {
-      kAttraction: 4,
-      kRepulsion: 4,
-      dampingFactor: 0.3,
-      minDistance: 0.1,
-      stopDistance: 2,
+      kAttraction: 8,
+      kRepulsion: 8,
+      dampingFactor: 0.47,
+      minDistance: 1,
+      stopDistance: 1.1,
       maxAttrValue: 100,
       ...options,
     };
@@ -297,6 +278,7 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
 
   public increaseNodes: boolean = false;
   public originalNodeData: INodeData[] = nodeData;
+  hiddenNodes: Node[] = [];
 
   scene!: THREE.Scene;
   camera!: THREE.PerspectiveCamera;
@@ -376,7 +358,7 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
       0.1,
       1000
     );
-    this.camera.position.z = 12;
+    this.camera.position.z = 8;
 
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvasRef.nativeElement,
@@ -644,9 +626,31 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
     // Reset the selected attribute node.
     this.selectedAttrNode = null;
   }
+
   onVisibilityChange(event: Event, node: Node): void {
+    // Prevent removal of the central node.
+    if (node.isCentralNode) {
+      return;
+    }
+    
     const checkbox = event.target as HTMLInputElement;
-    // Toggle the visibility of the sphere's mesh.
-    node.mesh.visible = checkbox.checked;
+    if (!checkbox.checked) {
+      // Remove node from the scene and from the nodes array.
+      this.cluster.remove(node);
+      const index = this.cluster.nodes.indexOf(node);
+      if (index > -1) {
+        this.cluster.nodes.splice(index, 1);
+      }
+      // Add it to hiddenNodes so we can restore it later.
+      this.hiddenNodes.push(node);
+    } else {
+      // Restore node from hiddenNodes.
+      const hiddenIndex = this.hiddenNodes.indexOf(node);
+      if (hiddenIndex > -1) {
+        this.hiddenNodes.splice(hiddenIndex, 1);
+        this.cluster.nodes.push(node);
+        this.cluster.add(node);
+      }
+    }
   }
 }

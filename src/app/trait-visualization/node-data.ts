@@ -118,7 +118,7 @@ export const nodeData: INodeData[] = [
   {
     id: 4,
     name: 'Robert',
-    position: [4, -1, 2],
+    position: [3, -1, 2],
     isCentral: false,
     color: '#F1C40F',
     attributes: {
@@ -242,7 +242,7 @@ export const nodeData: INodeData[] = [
   {
     id: 8,
     name: 'William',
-    position: [3, -2, 1],
+    position: [2, -2, 1],
     isCentral: false,
     color: '#800080',
     attributes: {
@@ -304,7 +304,7 @@ export const nodeData: INodeData[] = [
   {
     id: 10,
     name: 'David',
-    position: [2, 3, -4],
+    position: [2, 3, -1],
     isCentral: false,
     color: '#FFC0CB',
     attributes: {
@@ -490,7 +490,7 @@ export const nodeData: INodeData[] = [
   {
     id: 16,
     name: 'Alexander',
-    position: [3, 2, -5],
+    position: [3, 2, -2],
     isCentral: false,
     color: '#F5F5DC',
     attributes: {

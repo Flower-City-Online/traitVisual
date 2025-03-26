@@ -4,18 +4,42 @@
   <canvas #rendererCanvas></canvas>
 
   <aside class="sidebar">
+    <!-- Existing Visibility Panel for Active Nodes -->
     <div class="visibility-panel" *ngIf="cluster?.nodes">
       <h3>Toggle Sphere Visibility</h3>
       <div class="checkbox-grid">
         <div
-          *ngFor="let node of cluster.nodes; let i = index"
           class="checkbox-list"
+          *ngFor="let node of cluster.nodes; let i = index"
         >
           <label>
             <input
               type="checkbox"
               style="margin-right: 8px"
-              [checked]="node.mesh.visible"
+              [checked]="true"
+              [disabled]="node.isCentralNode"
+              (change)="onVisibilityChange($event, node)"
+            />
+            {{ node.userData["name"] || "Node " + (i + 1) }}
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- New Hidden Nodes Panel for Removed Nodes -->
+    <div class="visibility-panel" *ngIf="hiddenNodes && hiddenNodes.length">
+      <h3>Hidden Nodes</h3>
+      <div class="checkbox-grid">
+        <div
+          *ngFor="let node of hiddenNodes; let i = index"
+          class="checkbox-list"
+        >
+          <label>
+            <!-- Unchecked here indicates the node is hidden; checking it will restore the node -->
+            <input
+              type="checkbox"
+              style="margin-right: 8px"
+              [checked]="false"
               (change)="onVisibilityChange($event, node)"
             />
             {{ node.userData["name"] || "Node " + (i + 1) }}
