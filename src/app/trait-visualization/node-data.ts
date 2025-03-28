@@ -41,16 +41,16 @@ export const nodeData: INodeData[] = [
       leadership: 70,
     },
     preferences: {
-      intelligence: 70,
-      empathy: 60,
-      creativity: 75,
-      sociability: 80,
-      resilience: 65,
-      curiosity: 80,
-      adaptability: 70,
-      motivation: 85,
-      integrity: 90,
-      leadership: 65,
+      intelligence: 100,
+      empathy: 100,
+      creativity: 100,
+      sociability: 100,
+      resilience: 100,
+      curiosity: 100,
+      adaptability: 100,
+      motivation: 100,
+      integrity: 100,
+      leadership: 100,
     },
   },
   {
@@ -60,16 +60,16 @@ export const nodeData: INodeData[] = [
     isCentral: false,
     color: '#33FF57',
     attributes: {
-      intelligence: 78,
-      empathy: 55,
-      creativity: 62,
-      sociability: 70,
-      resilience: 75,
-      curiosity: 68,
-      adaptability: 72,
-      motivation: 80,
-      integrity: 82,
-      leadership: 60,
+      intelligence: 100,
+      empathy: 100,
+      creativity: 100,
+      sociability: 100,
+      resilience: 100,
+      curiosity: 100,
+      adaptability: 100,
+      motivation: 100,
+      integrity: 100,
+      leadership: 100,
     },
     preferences: {
       intelligence: 65,
@@ -87,20 +87,20 @@ export const nodeData: INodeData[] = [
   {
     id: 3,
     name: 'Alice',
-    position: [-3, 2, 1],
+    position: [-2, 2, 1],
     isCentral: false,
     color: '#3357FF',
     attributes: {
-      intelligence: 92,
-      empathy: 78,
-      creativity: 88,
-      sociability: 82,
-      resilience: 85,
-      curiosity: 90,
-      adaptability: 75,
-      motivation: 88,
-      integrity: 95,
-      leadership: 80,
+      intelligence: 0,
+      empathy: 0,
+      creativity: 0,
+      sociability: 0,
+      resilience: 0,
+      curiosity: 0,
+      adaptability: 0,
+      motivation: 0,
+      integrity: 0,
+      leadership: 0,
     },
     preferences: {
       intelligence: 80,
@@ -118,13 +118,13 @@ export const nodeData: INodeData[] = [
   {
     id: 4,
     name: 'Robert',
-    position: [3, -1, 2],
+    position: [2, -1, 2],
     isCentral: false,
     color: '#F1C40F',
     attributes: {
       intelligence: 65,
-      empathy: 45,
-      creativity: 55,
+      empathy: 65,
+      creativity: 80,
       sociability: 50,
       resilience: 60,
       curiosity: 58,
@@ -149,7 +149,7 @@ export const nodeData: INodeData[] = [
   {
     id: 5,
     name: 'Emma',
-    position: [-2, -3, -2],
+    position: [-2, -2, -2],
     isCentral: false,
     color: '#FF33A8',
     attributes: {
@@ -180,7 +180,7 @@ export const nodeData: INodeData[] = [
   {
     id: 6,
     name: 'Michael',
-    position: [1, 2, 3],
+    position: [1, 2, 2],
     isCentral: false,
     color: '#33FFF5',
     attributes: {
@@ -211,7 +211,7 @@ export const nodeData: INodeData[] = [
   {
     id: 7,
     name: 'Sophia',
-    position: [-1, -2, 3],
+    position: [-1, -2, 2],
     isCentral: false,
     color: '#FFA500',
     attributes: {
@@ -273,7 +273,7 @@ export const nodeData: INodeData[] = [
   {
     id: 9,
     name: 'Olivia',
-    position: [-4, 1, -3],
+    position: [-2, 1, -2],
     isCentral: false,
     color: '#008000',
     attributes: {
@@ -304,7 +304,7 @@ export const nodeData: INodeData[] = [
   {
     id: 10,
     name: 'David',
-    position: [2, 3, -1],
+    position: [2, 2, -1],
     isCentral: false,
     color: '#FFC0CB',
     attributes: {
@@ -335,7 +335,7 @@ export const nodeData: INodeData[] = [
   {
     id: 11,
     name: 'Emily',
-    position: [-3, -1, 2],
+    position: [-2, -1, 2],
     isCentral: false,
     color: '#A52A2A',
     attributes: {
@@ -397,7 +397,7 @@ export const nodeData: INodeData[] = [
   {
     id: 13,
     name: 'Mia',
-    position: [-5, 2, 0],
+    position: [-2, 2, 0],
     isCentral: false,
     color: '#FFD700',
     attributes: {
@@ -428,7 +428,7 @@ export const nodeData: INodeData[] = [
   {
     id: 14,
     name: 'Ethan',
-    position: [1, -4, 3],
+    position: [1, -2, 2],
     isCentral: false,
     color: '#40E0D0',
     attributes: {
@@ -490,12 +490,12 @@ export const nodeData: INodeData[] = [
   {
     id: 16,
     name: 'Alexander',
-    position: [3, 2, -2],
+    position: [2, 1, -2],
     isCentral: false,
     color: '#F5F5DC',
     attributes: {
       intelligence: 65,
-      empathy: 60,
+      empathy: 100,
       creativity: 62,
       sociability: 55,
       resilience: 70,
@@ -521,7 +521,7 @@ export const nodeData: INodeData[] = [
   {
     id: 17,
     name: 'Amelia',
-    position: [-4, -3, 4],
+    position: [-2, -2, 2],
     isCentral: false,
     color: '#7FFFD4',
     attributes: {
@@ -614,7 +614,7 @@ export const nodeData: INodeData[] = [
   {
     id: 20,
     name: 'Lucas',
-    position: [4, 3, -3],
+    position: [2, 2, -2],
     isCentral: false,
     color: '#DC143C',
     attributes: {

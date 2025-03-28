@@ -12,21 +12,39 @@ import * as THREE from 'three';
 import { FormsModule } from '@angular/forms';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { INodeData, IHumanAttributes, nodeData } from './node-data';
+import { ClusterOptions, SwapAnimation } from './types';
 
-interface ClusterOptions {
-  kAttraction: number;
-  kRepulsion: number;
-  dampingFactor: number;
-  minDistance: number;
-  stopDistance: number;
-  maxAttrValue: number;
-}
+class Cluster extends THREE.Object3D {
+  options: ClusterOptions;
+  nodes: Node[];
 
-interface SwapAnimation {
-  start: THREE.Vector3;
-  end: THREE.Vector3;
-  startTime: number;
-  duration: number;
+  constructor(nodeData: INodeData[], options?: Partial<ClusterOptions>) {
+    super();
+    this.options = {
+      kAttraction: 1,          // Lower attraction strength so nodes don't overshoot
+      kRepulsion: 1,           // Lower repulsion strength to avoid too harsh separation
+      dampingFactor: 0.8,      // Increased damping for smoother motion
+      maxAttractionDistance: 5, // Maximum desired distance when compatibility is 0
+      minDistance: 0.62,        // Minimum distance between nodes (~2x node radius) // repulsion start due to this
+      stopDistance: 0.6,       // Stop moving when nodes are about 0.6 units apart
+      maxAttrValue: 100,
+      ...options,
+    };
+    this.nodes = [];
+    this.setUp(nodeData);
+  }
+
+  setUp(nodeData: INodeData[]): void {
+    nodeData.forEach((data) => {
+      const node = new Node(data, this.options);
+      this.nodes.push(node);
+      this.add(node);
+    });
+  }
+
+  update(): void {
+    this.nodes.forEach((node) => node.update(this.nodes));
+  }
 }
 
 class Node extends THREE.Object3D {
@@ -82,65 +100,43 @@ class Node extends THREE.Object3D {
     }
   }
 
-  // Updated compatibility: non-central node compares its attributes with the central node’s preferences
+  // Calculates compatibility of the node with the central node based on mean of attributes/preferences.
   calculateCompatibility(centralNode: Node): number {
-    if (!this.attributes) return 0;
+    if (!this.attributes || !centralNode.preferences) return 0;
 
-    const attributeKeys: (keyof IHumanAttributes)[] = [
-      'intelligence',
-      'empathy',
-      'creativity',
-      'sociability',
-      'resilience',
-      'curiosity',
-      'adaptability',
-      'motivation',
-      'integrity',
-      'leadership',
-    ];
+    const meanAttributes =
+      this.attributes.reduce((sum, val) => sum + val, 0) /
+      this.attributes.length;
+    const meanPreferences =
+      centralNode.preferences.reduce((sum, val) => sum + val, 0) /
+      centralNode.preferences.length;
 
-    let sumDiff = 0;
-    let maxDiff = 0;
-    // For the central node, use its preferences if it is central
-    const centralValues = centralNode.isCentralNode
-      ? centralNode.preferences
-      : centralNode.attributes;
-
-    for (let i = 0; i < attributeKeys.length; i++) {
-      const diff = Math.abs(this.attributes[i] - centralValues[i]);
-      sumDiff += diff; // Assuming a weight of 1 per attribute
-      maxDiff += 100;
-    }
-
-    const compatibility = 1 - sumDiff / maxDiff;
-    return Math.max(0, Math.min(1, compatibility));
+    const compatibility = 1 - Math.abs(meanAttributes - meanPreferences) / 100;
+    return Math.max(0, Math.min(1, compatibility)); // It will always be between 0 and 1
   }
 
-  calculateAttractionForce(centralNode: Node): THREE.Vector3 {
+  // Computes the target distance between a central node and a non-central node based on their compatibility.
+  calculateAttractionDistance(centralNode: Node): number {
     const compatibility = this.calculateCompatibility(centralNode);
-    const displacement = new THREE.Vector3().subVectors(
-      centralNode.position,
-      this.position
-    );
-    const distance = displacement.length();
-    const forceMagnitude =
-      (this.options.kAttraction * compatibility) / (distance + 1);
-    return displacement.normalize().multiplyScalar(forceMagnitude);
+    const maxDistance = this.options.maxAttractionDistance; // Define max possible distance
+    return maxDistance * (1 - compatibility); // Closer compatibility → smaller distance
   }
 
+  // Computes the repulsion force between two non-central nodes.
   calculateRepulsionForce(otherNode: Node): THREE.Vector3 {
     const displacement = new THREE.Vector3().subVectors(
       otherNode.position,
       this.position
     );
-    const distance = this.position.distanceTo(otherNode.position);
+    const distance = displacement.length() || 0.0001; // Avoid division by zero
+
     if (distance < this.options.minDistance) {
-      // Fallback force if too close.
-      return new THREE.Vector3(0, 1, 0.1);
+      // Dynamic fallback force: push nodes apart slightly
+      return displacement.normalize().multiplyScalar(0.5);
     }
-    const similarity = this.calculateCompatibility(otherNode);
-    const forceMagnitude =
-      (-this.options.kRepulsion * (1 - similarity)) / (distance * distance);
+
+    const forceMagnitude =  
+      (-this.options.kRepulsion) / (distance);
     return displacement.normalize().multiplyScalar(forceMagnitude);
   }
 
@@ -168,8 +164,15 @@ class Node extends THREE.Object3D {
     let force = new THREE.Vector3(0, 0, 0);
     const centralNode = nodes.find((n) => n.isCentralNode);
     if (centralNode) {
-      force.add(this.calculateAttractionForce(centralNode));
+      const targetDistance = this.calculateAttractionDistance(centralNode); // desired distance based on compatibility
+      const direction = new THREE.Vector3().subVectors(centralNode.position, this.position).normalize();
+      const currentDistance = centralNode.position.distanceTo(this.position);
+      // Spring force: proportional to (currentDistance - targetDistance)
+      const error = currentDistance - targetDistance;
+      const forceMagnitude = this.options.kAttraction * error;
+      force.add(direction.multiplyScalar(forceMagnitude));
     }
+    
 
     // Add repulsion forces from other non-central nodes.
     nodes.forEach((other) => {
@@ -179,7 +182,7 @@ class Node extends THREE.Object3D {
     });
 
     this.velocity.add(force);
-    const maxSpeed = 0.1;
+    const maxSpeed = 0.03;
     if (this.velocity.length() > maxSpeed) {
       this.velocity.setLength(maxSpeed);
     }
@@ -190,8 +193,8 @@ class Node extends THREE.Object3D {
     const predictedPos = this.position.clone().add(this.velocity);
 
     // Define boundaries (adjust these values to suit your needs)
-    const boundaryMin = new THREE.Vector3(-20, -20, -20);
-    const boundaryMax = new THREE.Vector3(20, 20, 20);
+    const boundaryMin = new THREE.Vector3(-4, -4, -4);
+    const boundaryMax = new THREE.Vector3(4, 4, 4);
 
     // Clamp predicted position within boundaries
     predictedPos.x = THREE.MathUtils.clamp(
@@ -231,38 +234,6 @@ class Node extends THREE.Object3D {
   }
 }
 
-class Cluster extends THREE.Object3D {
-  options: ClusterOptions;
-  nodes: Node[];
-
-  constructor(nodeData: INodeData[], options?: Partial<ClusterOptions>) {
-    super();
-    this.options = {
-      kAttraction: 8,
-      kRepulsion: 8,
-      dampingFactor: 0.47,
-      minDistance: 1,
-      stopDistance: 1.1,
-      maxAttrValue: 100,
-      ...options,
-    };
-    this.nodes = [];
-    this.setUp(nodeData);
-  }
-
-  setUp(nodeData: INodeData[]): void {
-    nodeData.forEach((data) => {
-      const node = new Node(data, this.options);
-      this.nodes.push(node);
-      this.add(node);
-    });
-  }
-
-  update(): void {
-    this.nodes.forEach((node) => node.update(this.nodes));
-  }
-}
-
 @Component({
   selector: 'app-trait-visualization',
   standalone: true,
@@ -288,7 +259,6 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
   mouse: THREE.Vector2 = new THREE.Vector2();
   cluster!: Cluster;
   tooltipVisible = false;
-  // Holds the node whose attributes are being edited.
   selectedAttrNode: Node | null = null;
 
   // New properties for drag functionality:
@@ -632,7 +602,7 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
     if (node.isCentralNode) {
       return;
     }
-    
+
     const checkbox = event.target as HTMLInputElement;
     if (!checkbox.checked) {
       // Remove node from the scene and from the nodes array.
