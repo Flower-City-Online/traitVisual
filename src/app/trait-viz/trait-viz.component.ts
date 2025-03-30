@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import {
   Component,
   ElementRef,
@@ -9,25 +10,37 @@ import {
   NgZone,
 } from '@angular/core';
 import * as THREE from 'three';
-import { FormsModule } from '@angular/forms';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { INodeData, nodeData } from './trait-visualization.data';
-import { ClusterOptions, SwapAnimation } from './trait-visualization.types';
+import { nodeData } from './trait-viz.data';
+import {
+  ISimulationConfigs,
+  INodeData,
+  ISwapAnimation,
+} from './trait-viz.types';
 
 class Cluster extends THREE.Object3D {
-  options: ClusterOptions;
+  options: ISimulationConfigs;
   nodes: Node[];
 
-  constructor(nodeData: INodeData[], options?: Partial<ClusterOptions>) {
+  constructor(nodeData: INodeData[], options?: Partial<ISimulationConfigs>) {
     super();
     this.options = {
-      kAttraction: 1,          // Lower attraction strength so nodes don't overshoot
-      kRepulsion: 1,           // Lower repulsion strength to avoid too harsh separation
-      dampingFactor: 0.8,      // Increased damping for smoother motion
-      maxAttractionDistance: 5, // Maximum desired distance when compatibility is 0
-      minDistance: 0.62,        // Minimum distance between nodes (~2x node radius) // repulsion start due to this
-      stopDistance: 0.6,       // Stop moving when nodes are about 0.6 units apart
-      maxAttrValue: 100,
+      sun: {
+        attraction: 1,
+        repulsion: 1,
+        repulsionInitializationThreshold: 0.8,
+      },
+      planet: {
+        attraction: 1,
+        repulsion: 1,
+        repulsionInitializationThreshold: 0.4,
+      },
+      maxVelocity: 0.02,
+      velocityDamping: 0.8,
+      minAttributeValue: 0,
+      minPreferenceValue: 0,
+      maxAttributeValue: 100,
+      maxPreferenceValue: 100,
       ...options,
     };
     this.nodes = [];
@@ -48,22 +61,22 @@ class Cluster extends THREE.Object3D {
 }
 
 class Node extends THREE.Object3D {
-  options: ClusterOptions;
+  options: ISimulationConfigs;
+  velocity: THREE.Vector3;
+  isSun: boolean;
   attributes: number[];
   preferences: number[];
-  velocity: THREE.Vector3;
   preference: number = 0;
-  isCentralNode: boolean;
   mesh: THREE.Mesh;
-  swap: SwapAnimation | null = null;
+  swap: ISwapAnimation | null = null;
 
-  constructor(data: INodeData, options: ClusterOptions) {
+  constructor(data: INodeData, options: ISimulationConfigs) {
     super();
     this.options = options;
-    this.position.fromArray(data.position);
+    this.position.fromArray(data.initialPosition);
     this.velocity = new THREE.Vector3(0, 0, 0);
     this.userData = { ...data };
-    this.isCentralNode = data.isCentral;
+    this.isSun = data.isSun;
 
     this.attributes = data.attributes
       ? [...Object.values(data.attributes)]
@@ -73,7 +86,7 @@ class Node extends THREE.Object3D {
       ? [...Object.values(data.preferences)]
       : Array.from({ length: 10 }, () => Math.floor(Math.random() * 99));
 
-    // Use the provided color from NODE_DATA
+    // Create a sphere mesh for visualization
     const sphereColor = new THREE.Color(data.color);
     this.mesh = new THREE.Mesh(
       new THREE.SphereGeometry(0.1, 64, 64),
@@ -86,12 +99,9 @@ class Node extends THREE.Object3D {
     this.add(this.mesh);
   }
 
-  setCentralNode(
-    state: boolean = !this.isCentralNode,
-    preference?: number
-  ): void {
-    this.isCentralNode = state;
-    // Force red for central; otherwise, use green as a fallback.
+  setSun(state: boolean = !this.isSun, preference?: number): void {
+    this.isSun = state;
+    // Use isSun to determine color: red for sun, green for planet.
     (this.mesh.material as THREE.MeshStandardMaterial).color = new THREE.Color(
       state ? 'red' : 'green'
     );
@@ -100,148 +110,177 @@ class Node extends THREE.Object3D {
     }
   }
 
-  // Calculates compatibility of the node with the central node based on mean of attributes/preferences.
-  calculateCompatibility(centralNode: Node): number {
-    if (!this.attributes || !centralNode.preferences) return 0;
-
-    const meanAttributes =
-      this.attributes.reduce((sum, val) => sum + val, 0) /
-      this.attributes.length;
-    const meanPreferences =
-      centralNode.preferences.reduce((sum, val) => sum + val, 0) /
-      centralNode.preferences.length;
-
-    const compatibility = 1 - Math.abs(meanAttributes - meanPreferences) / 100;
-    return Math.max(0, Math.min(1, compatibility)); // It will always be between 0 and 1
-  }
-
-  // Computes the target distance between a central node and a non-central node based on their compatibility.
-  calculateAttractionDistance(centralNode: Node): number {
-    const compatibility = this.calculateCompatibility(centralNode);
-    const maxDistance = this.options.maxAttractionDistance; // Define max possible distance
-    return maxDistance * (1 - compatibility); // Closer compatibility → smaller distance
-  }
-
-  // Computes the repulsion force between two non-central nodes.
-  calculateRepulsionForce(otherNode: Node): THREE.Vector3 {
-    const displacement = new THREE.Vector3().subVectors(
-      otherNode.position,
-      this.position
-    );
-    const distance = displacement.length() || 0.0001; // Avoid division by zero
-
-    if (distance < this.options.minDistance) {
-      // Dynamic fallback force: push nodes apart slightly
-      return displacement.normalize().multiplyScalar(0.5);
+  /**
+   * Computes the compatibility between the sun’s preferences and this planet’s attributes.
+   * Returns a value between 0 (completely incompatible) and 1 (perfect match).
+   */
+  calculatePreferredCompatibility(sun: Node): number {
+    const sunPreferences = sun.preferences;
+    const planetAttributes = this.attributes;
+    let diffSum = 0;
+    for (let i = 0; i < sunPreferences.length; i++) {
+      diffSum += Math.abs(sunPreferences[i] - planetAttributes[i]);
     }
+    const maxDiff = sunPreferences.length * 100;
+    return 1 - diffSum / maxDiff;
+  }
 
-    const forceMagnitude =  
-      (-this.options.kRepulsion) / (distance);
-    return displacement.normalize().multiplyScalar(forceMagnitude);
+  /**
+   * Computes the compatibility between this planet and another planet based on their attributes.
+   * Returns a value between 0 (incompatible) and 1 (perfect match).
+   */
+  calculateAttributeCompatibility(other: Node): number {
+    const attributesA = this.attributes;
+    const attributesB = other.attributes;
+    let diffSum = 0;
+    for (let i = 0; i < attributesA.length; i++) {
+      diffSum += Math.abs(attributesA[i] - attributesB[i]);
+    }
+    const maxDiff = attributesA.length * 100;
+    return 1 - diffSum / maxDiff;
   }
 
   update(nodes: Node[]): void {
-    // Handle swap animation if active
     if (this.swap) {
-      const currentSwap = this.swap;
-      const currentTime = performance.now();
-      let progress =
-        (currentTime - currentSwap.startTime) / currentSwap.duration;
-      if (progress >= 1) {
-        progress = 1;
-        this.velocity.set(0, 0, 0);
-        this.swap = null;
-      }
-      this.position.copy(
-        currentSwap.start.clone().lerp(currentSwap.end, progress)
-      );
+      this.handleSwapAnimation();
       return;
     }
 
-    // Skip update for central node
-    if (this.isCentralNode) return;
+    if (this.isSun) return;
 
-    let force = new THREE.Vector3(0, 0, 0);
-    const centralNode = nodes.find((n) => n.isCentralNode);
-    if (centralNode) {
-      const targetDistance = this.calculateAttractionDistance(centralNode); // desired distance based on compatibility
-      const direction = new THREE.Vector3().subVectors(centralNode.position, this.position).normalize();
-      const currentDistance = centralNode.position.distanceTo(this.position);
-      // Spring force: proportional to (currentDistance - targetDistance)
-      const error = currentDistance - targetDistance;
-      const forceMagnitude = this.options.kAttraction * error;
-      force.add(direction.multiplyScalar(forceMagnitude));
+    let totalForce = new THREE.Vector3();
+
+    // Get Sun (Central Node)
+    const sun = nodes.find((n) => n.isSun);
+    if (sun) {
+      totalForce.add(this.calculateSunForce(sun));
     }
-    
 
-    // Add repulsion forces from other non-central nodes.
-    nodes.forEach((other) => {
-      if (other !== this && !other.isCentralNode) {
-        force.add(this.calculateRepulsionForce(other));
-      }
-    });
+    // Calculate Repulsion from Other Planets
+    totalForce.add(this.calculatePlanetRepulsion(nodes));
 
-    this.velocity.add(force);
-    const maxSpeed = 0.03;
-    if (this.velocity.length() > maxSpeed) {
-      this.velocity.setLength(maxSpeed);
-    }
-    // Apply damping to the velocity
-    this.velocity.multiplyScalar(this.options.dampingFactor);
+    // Calculate a small Attraction Force from Other Planets
+    totalForce.add(this.calculatePlanetAttraction(nodes));
 
-    // Predict next position
-    const predictedPos = this.position.clone().add(this.velocity);
+    // Update velocity and position
+    this.applyForces(totalForce);
+  }
 
-    // Define boundaries (adjust these values to suit your needs)
-    const boundaryMin = new THREE.Vector3(-4, -4, -4);
-    const boundaryMax = new THREE.Vector3(4, 4, 4);
+  // Handles attraction and repulsion between the sun and planets.
+  private calculateSunForce(sun: Node): THREE.Vector3 {
+    let force = new THREE.Vector3();
+    const compatibility = this.calculatePreferredCompatibility(sun);
 
-    // Clamp predicted position within boundaries
-    predictedPos.x = THREE.MathUtils.clamp(
-      predictedPos.x,
-      boundaryMin.x,
-      boundaryMax.x
-    );
-    predictedPos.y = THREE.MathUtils.clamp(
-      predictedPos.y,
-      boundaryMin.y,
-      boundaryMax.y
-    );
-    predictedPos.z = THREE.MathUtils.clamp(
-      predictedPos.z,
-      boundaryMin.z,
-      boundaryMax.z
-    );
+    // Updated desired distance: maps compatibility [0,1] to distance [3,1]
+    const desiredDistance = 1 + (1 - compatibility) * 3;
 
-    // Optional: If you want the sphere to bounce off the boundary instead of stopping,
-    // you could reflect the velocity here.
+    const currentDistance = sun.position.distanceTo(this.position);
+    const error = currentDistance - desiredDistance;
+    const directionToSun = new THREE.Vector3()
+      .subVectors(sun.position, this.position)
+      .normalize();
 
-    // Check for collisions (if necessary) and update position
-    let tooClose = false;
-    nodes.forEach((other) => {
-      if (
-        other !== this &&
-        predictedPos.distanceTo(other.position) < this.options.stopDistance
-      ) {
-        tooClose = true;
-      }
-    });
-    if (!tooClose) {
-      this.position.copy(predictedPos);
+    if (currentDistance < desiredDistance) {
+      const repulsionForce =
+        -this.options.sun.repulsion *
+        (desiredDistance - currentDistance) *
+        compatibility;
+      force.add(directionToSun.multiplyScalar(repulsionForce));
     } else {
-      this.velocity.set(0, 0, 0);
+      const attractionForce =
+        2 * this.options.sun.attraction * error * compatibility + 0.018;
+      force.add(directionToSun.multiplyScalar(attractionForce));
     }
+
+    return force;
+  }
+
+  // Inside the Node class
+  private calculatePlanetAttraction(nodes: Node[]): THREE.Vector3 {
+    let attractionForce = new THREE.Vector3();
+    const attractionConstant = 0.001; // Change this to 0.0001 if desired
+
+    nodes.forEach((other) => {
+      if (other !== this && !other.isSun) {
+        const compatibility = this.calculateAttributeCompatibility(other);
+        // Force magnitude proportional to compatibility.
+        const forceMagnitude = attractionConstant * compatibility - 0.0014;
+        // Direction from this planet to the other planet.
+        const attractionDirection = new THREE.Vector3()
+          .subVectors(other.position, this.position)
+          .normalize();
+        attractionForce.add(attractionDirection.multiplyScalar(forceMagnitude));
+      }
+    });
+
+    return attractionForce;
+  }
+
+  // Handles repulsion between planets based on attribute similarity.
+  private calculatePlanetRepulsion(nodes: Node[]): THREE.Vector3 {
+    let repulsionForce = new THREE.Vector3();
+
+    nodes.forEach((other) => {
+      if (other !== this && !other.isSun) {
+        const distance = this.position.distanceTo(other.position);
+        if (distance < this.options.planet.repulsionInitializationThreshold) {
+          const compatibility = this.calculateAttributeCompatibility(other);
+          const repulsion =
+            this.options.planet.repulsion *
+            (this.options.planet.repulsionInitializationThreshold - distance) *
+            (1 - compatibility) + 0.0001;
+
+          const repulsionDirection = new THREE.Vector3()
+            .subVectors(this.position, other.position)
+            .normalize();
+          repulsionForce.add(repulsionDirection.multiplyScalar(repulsion));
+        }
+      }
+    });
+
+    return repulsionForce;
+  }
+
+  // Applies forces, updates velocity and position.
+  private applyForces(force: THREE.Vector3): void {
+    this.velocity.add(force);
+    if (this.velocity.length() > this.options.maxVelocity) {
+      this.velocity.setLength(this.options.maxVelocity);
+    }
+    this.velocity.multiplyScalar(this.options.velocityDamping);
+    this.position.add(this.velocity);
+
+    // this.position.x = Math.max(-5, Math.min(5, this.position.x));
+    // this.position.y = Math.max(-5, Math.min(5, this.position.y));
+    // this.position.z = Math.max(-5, Math.min(5, this.position.z));
+  }
+
+  // Handles swap animation if active
+  private handleSwapAnimation(): void {
+    if (!this.swap) return;
+
+    const currentSwap = this.swap;
+    const currentTime = performance.now();
+    let progress = (currentTime - currentSwap.startTime) / currentSwap.duration;
+    if (progress >= 1) {
+      progress = 1;
+      this.velocity.set(0, 0, 0);
+      this.swap = null;
+    }
+    this.position.copy(
+      currentSwap.start.clone().lerp(currentSwap.end, progress)
+    );
   }
 }
 
 @Component({
-  selector: 'app-trait-visualization',
+  selector: 'app-trait-viz',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './trait-visualization.component.html',
-  styleUrls: ['./trait-visualization.component.scss'],
+  templateUrl: './trait-viz.component.html',
+  styleUrls: ['./trait-viz.component.scss'],
 })
-export class TraitVisualizationComponent implements OnInit, AfterViewInit {
+export class TraitVizComponent implements OnInit, AfterViewInit {
   @ViewChild('rendererCanvas', { static: true }) canvasRef!: ElementRef;
   @ViewChild('tooltip', { static: true }) tooltipRef!: ElementRef;
   @ViewChild('dropdown', { static: true }) dropdownRef!: ElementRef;
@@ -260,8 +299,6 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
   cluster!: Cluster;
   tooltipVisible = false;
   selectedAttrNode: Node | null = null;
-
-  // New properties for drag functionality:
   draggingNode: Node | null = null;
   dragPlane: THREE.Plane = new THREE.Plane();
   dragOffset: THREE.Vector3 = new THREE.Vector3();
@@ -275,14 +312,11 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
 
   ngAfterViewInit(): void {
     this.animate();
-
-    // Tooltip mousemove listener (skip updating tooltip if dragging)
     this.renderer2.listen('window', 'mousemove', (event: MouseEvent) =>
       this.onMouseMove(event)
     );
     window.addEventListener('resize', () => this.onWindowResize());
 
-    // Add drag listeners to the canvas
     const canvas = this.canvasRef.nativeElement;
     this.renderer2.listen(canvas, 'mousedown', (event: MouseEvent) =>
       this.onDragStart(event)
@@ -299,21 +333,23 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
   }
 
   get editableNode(): Node | null {
-    return this.selectedAttrNode ? this.selectedAttrNode : this.currentCentral;
+    // If a non-sun node has been selected, use it.
+    if (this.selectedAttrNode) return this.selectedAttrNode;
+    // Otherwise, choose the first non-sun node, if available.
+    const nonSuns = this.cluster
+      ? this.cluster.nodes.filter((n) => !n.isSun)
+      : [];
+    return nonSuns.length ? nonSuns[0] : this.currentCentral;
   }
 
   get currentCentral(): Node | null {
     if (!this.cluster) return null;
-    return this.cluster.nodes.find((node) => node.isCentralNode) || null;
+    return this.cluster.nodes.find((node) => node.isSun) || null;
   }
 
-  get nonCentralNodes(): Node[] {
+  get nonSuns(): Node[] {
     if (!this.cluster) return [];
-    return this.cluster.nodes.filter((node) => !node.isCentralNode);
-  }
-
-  get allNodes(): Node[] {
-    return this.cluster ? this.cluster.nodes : [];
+    return this.cluster.nodes.filter((node) => !node.isSun);
   }
 
   trackByIndex(index: number, item: any): number {
@@ -329,18 +365,14 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
       1000
     );
     this.camera.position.z = 8;
-
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvasRef.nativeElement,
       antialias: true,
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    this.scene.add(ambientLight);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.5));
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(10, 10, 10);
     this.scene.add(directionalLight);
@@ -349,12 +381,9 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
   private loadNodes(): void {
     this.cluster = new Cluster(nodeData);
     this.scene.add(this.cluster);
-
-    // Set initial central node's appearance.
     const initialCentral =
-      this.cluster.nodes.find((node) => node.isCentralNode) ||
-      this.cluster.nodes[0];
-    initialCentral.setCentralNode(true, 5);
+      this.cluster.nodes.find((node) => node.isSun) || this.cluster.nodes[0];
+    initialCentral.setSun(true, 5);
     initialCentral.mesh.scale.set(2, 2, 2);
   }
 
@@ -363,9 +392,7 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
       const loop = () => {
         requestAnimationFrame(loop);
         this.controls.update();
-        if (this.cluster) {
-          this.cluster.update();
-        }
+        if (this.cluster) this.cluster.update();
         this.renderer.render(this.scene, this.camera);
         this.checkHover();
       };
@@ -379,7 +406,6 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
-  // Update tooltip only if not dragging
   private onMouseMove(event: MouseEvent): void {
     if (this.draggingNode) return;
     this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -414,14 +440,11 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
       this.tooltipVisible = false;
       this.tooltipRef.nativeElement.style.opacity = '0';
       setTimeout(() => {
-        if (!this.tooltipVisible) {
+        if (!this.tooltipVisible)
           this.tooltipRef.nativeElement.style.display = 'none';
-        }
       }, 200);
     }
   }
-
-  // --- Drag Functionality ---
 
   private onDragStart(event: MouseEvent): void {
     event.preventDefault();
@@ -438,9 +461,7 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
     );
     if (intersects.length > 0) {
       this.draggingNode = intersects[0].object.parent as Node;
-      // Disable OrbitControls while dragging
       this.controls.enabled = false;
-      // Set up the drag plane using the camera's direction and the intersection point
       const planeNormal = this.camera
         .getWorldDirection(new THREE.Vector3())
         .clone()
@@ -449,7 +470,6 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
         planeNormal,
         intersects[0].point
       );
-      // Compute the offset between the intersection point and the node's position
       this.dragOffset.copy(intersects[0].point).sub(this.draggingNode.position);
     }
   }
@@ -466,7 +486,6 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
     this.raycaster.setFromCamera(mouse, this.camera);
     const intersection = new THREE.Vector3();
     if (this.raycaster.ray.intersectPlane(this.dragPlane, intersection)) {
-      // Update the node's position by subtracting the initial offset
       this.draggingNode.position.copy(intersection.sub(this.dragOffset));
     }
   }
@@ -475,70 +494,57 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
     if (!this.draggingNode) return;
     event.preventDefault();
     this.draggingNode = null;
-    // Re-enable OrbitControls when dragging ends
     this.controls.enabled = true;
   }
 
-  // --- End Drag Functionality ---
-
-  // Handles changing the central node.
   onDropdownChange(event: Event): void {
     const target = event.target as HTMLSelectElement;
     const index = parseInt(target.value);
     if (!this.cluster) return;
     const newCentral = this.cluster.nodes[index];
-    const oldCentral = this.cluster.nodes.find((node) => node.isCentralNode);
+    const oldCentral = this.cluster.nodes.find((node) => node.isSun);
     if (!newCentral || !oldCentral || newCentral === oldCentral) return;
-
-    const newPos = newCentral.position.clone();
-    const oldPos = oldCentral.position.clone();
+    const newPosition = newCentral.position.clone();
+    const oldPosition = oldCentral.position.clone();
     newCentral.swap = {
-      start: newPos,
+      start: newPosition,
       end: new THREE.Vector3(0, 0, 0),
       startTime: performance.now(),
       duration: 5000,
     };
     oldCentral.swap = {
-      start: oldPos,
-      end: newPos,
+      start: oldPosition,
+      end: newPosition,
       startTime: performance.now(),
       duration: 5000,
     };
-
-    oldCentral.setCentralNode(false);
-    newCentral.setCentralNode(true, 5);
+    oldCentral.setSun(false);
+    newCentral.setSun(true, 5);
     oldCentral.mesh.scale.set(1, 1, 1);
     newCentral.mesh.scale.set(2, 2, 2);
-
-    // If the central node changes, and no non-central node is selected for editing,
-    // the attribute table will fall back to displaying the central node's attributes.
-    if (!this.selectedAttrNode) {
-      // Trigger change detection for the attribute panel by reassigning.
-      this.selectedAttrNode = null;
-    }
+    this.selectedAttrNode = null;
   }
 
-  // Handles selection of a node for attribute editing.
   onAttrDropdownChange(event: Event): void {
     const target = event.target as HTMLSelectElement;
     const selectedId = target.value;
     if (!this.cluster) return;
-    // Find the non-central node with the matching ID.
     const node = this.cluster.nodes.find(
       (node) => node.userData['id'].toString() === selectedId
     );
     this.selectedAttrNode = node || null;
   }
 
-  // Updates an attribute for the currently editable node.
   onAttributeChange(index: number, event: Event): void {
     const input = event.target as HTMLInputElement;
     const newValue = Number(input.value);
     if (this.editableNode) {
       this.editableNode.attributes[index] = newValue;
-      // Apply a small impulse so that the new forces become visible.
-      // For non-central nodes, this helps to "reheat" the simulation.
       this.editableNode.velocity.add(new THREE.Vector3(0.02, 0.02, 0.02));
+
+      // Example: Update the scale based on attribute 1 (normalize to a suitable range)
+      const scaleFactor = 1 + this.editableNode.attributes[0] / 100;
+      this.editableNode.mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
     }
   }
 
@@ -547,74 +553,54 @@ export class TraitVisualizationComponent implements OnInit, AfterViewInit {
     const newValue = Number(input.value);
     if (this.currentCentral) {
       this.currentCentral.preferences[index] = newValue;
-      // Optionally, add a small impulse to show updated forces
       this.currentCentral.velocity.add(new THREE.Vector3(0.02, 0.02, 0.02));
     }
   }
 
   onNodesToggle(event: Event): void {
-    // Determine new node data based on checkbox state.
     let newNodeData: INodeData[];
     if (this.increaseNodes) {
-      // Double the number of nodes by appending copies with new IDs and slight offset adjustments.
       newNodeData = [
         ...this.originalNodeData,
-        ...this.originalNodeData.map((node, index) => {
-          return {
-            ...node,
-            id: node.id + this.originalNodeData.length,
-            name: node.name + ' copy',
-            position: [
-              node.position[0] + Math.random() * 5, // add a random offset
-              node.position[1] + Math.random() * 5,
-              node.position[2] + Math.random() * 5,
-            ] as [number, number, number], // Cast as a tuple
-          };
-        }),
+        ...this.originalNodeData.map((node, index) => ({
+          ...node,
+          id: node.id + this.originalNodeData.length,
+          name: node.name + ' copy',
+          initialPosition: [
+            node.initialPosition[0] + Math.random() * 5,
+            node.initialPosition[1] + Math.random() * 5,
+            node.initialPosition[2] + Math.random() * 5,
+          ] as [number, number, number],
+        })),
       ];
     } else {
-      // Revert back to the original node data.
       newNodeData = this.originalNodeData;
     }
-
-    // Remove the existing cluster from the scene.
     if (this.cluster) {
       this.scene.remove(this.cluster);
     }
-
-    // Create a new Cluster instance with the updated data.
     this.cluster = new Cluster(newNodeData);
     this.scene.add(this.cluster);
-
-    // (Optional) Reapply central node settings if needed.
     const newCentral =
-      this.cluster.nodes.find((node) => node.isCentralNode) ||
-      this.cluster.nodes[0];
-    newCentral.setCentralNode(true, 5);
+      this.cluster.nodes.find((node) => node.isSun) || this.cluster.nodes[0];
+    newCentral.setSun(true, 5);
     newCentral.mesh.scale.set(2, 2, 2);
-
-    // Reset the selected attribute node.
     this.selectedAttrNode = null;
   }
 
   onVisibilityChange(event: Event, node: Node): void {
-    // Prevent removal of the central node.
-    if (node.isCentralNode) {
+    if (node.isSun) {
       return;
     }
-
     const checkbox = event.target as HTMLInputElement;
     if (!checkbox.checked) {
-      // Remove node from the scene and from the nodes array.
       this.cluster.remove(node);
       const index = this.cluster.nodes.indexOf(node);
       if (index > -1) {
         this.cluster.nodes.splice(index, 1);
       }
-      // Add it to hiddenNodes so we can restore it later.
       this.hiddenNodes.push(node);
     } else {
-      // Restore node from hiddenNodes.
       const hiddenIndex = this.hiddenNodes.indexOf(node);
       if (hiddenIndex > -1) {
         this.hiddenNodes.splice(hiddenIndex, 1);

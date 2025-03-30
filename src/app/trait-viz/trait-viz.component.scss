@@ -1,0 +1,255 @@
+/* Canvas remains full viewport */
+app-wrapper {
+  display: flex;
+  width: 100vw;
+}
+
+canvas {
+  display: flex;
+  width: calc(100vw - 320px);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Tooltip with neumorphic inner shadow */
+.tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 4px;
+  pointer-events: none;
+  font-size: 14px;
+  white-space: nowrap;
+  transition: opacity 0.2s ease-in-out;
+  opacity: 0;
+  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.3),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.1);
+}
+
+/* Sidebar fixed position with neumorphic background */
+.sidebar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  overflow-y: scroll;
+  width: 320px;
+  background-color: #29252d;
+  padding: 24px;
+  box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.3),
+    -4px -4px 10px rgba(255, 255, 255, 0.1);
+}
+
+.checkbox-wrapper {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  margin-top: 24px;
+  font-size: 24px;
+}
+.checkbox-wrapper .label {
+  margin: 8px;
+}
+
+.visibility-panel {
+  background: linear-gradient(180deg, #111 0%, #222 100%);
+  padding: 10px;
+  border-radius: 4px;
+  z-index: 10;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3),
+    -2px -2px 5px rgba(255, 255, 255, 0.1);
+  margin: 16px 0;
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.visibility-panel h3 {
+  color: #d36;
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.checkbox-list label {
+  color: #d36;
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  display: flex;
+}
+
+/* Wrapper for dropdowns */
+.dropdown-wrapper {
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  gap: 16px;
+  padding-bottom: 16px;
+}
+
+/* General dropdown styling */
+.dropdown {
+  padding: 8px 10px;
+  font-size: 16px;
+  color: #d36;
+  background: linear-gradient(180deg, #111 0%, #333 94%, #555 100%);
+  border: none;
+  border-radius: 8px;
+  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.3),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.1);
+  appearance: none; /* Removes native styling where possible */
+  cursor: pointer;
+}
+
+/* Hover and focus effects for dropdown */
+.dropdown:hover,
+.dropdown:focus {
+  box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3),
+    -3px -3px 6px rgba(255, 255, 255, 0.1);
+  outline: none;
+}
+
+/* Attempt to style option elements (note: may vary across browsers) */
+.dropdown option {
+  background: #333;
+  color: #d36;
+}
+
+.attributes-panel {
+  background: linear-gradient(180deg, #111 0%, #222 100%);
+  padding: 10px;
+  border-radius: 4px;
+  z-index: 10;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3),
+    -2px -2px 5px rgba(255, 255, 255, 0.1);
+}
+
+.preferences-panel {
+  background: linear-gradient(180deg, #111 0%, #222 100%);
+  padding: 10px;
+  border-radius: 4px;
+  z-index: 10;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3),
+    -2px -2px 5px rgba(255, 255, 255, 0.1);
+}
+
+/* Title in both panels */
+.attributes-panel h3,
+.preferences-panel h3 {
+  color: #d36;
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+/* Label styling for both panels */
+.attributes-panel label,
+.preferences-panel label {
+  color: #d36;
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+/* Range input styles remain the same as defined below */
+.attributes-panel input[type="range"],
+.preferences-panel input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 8px;
+  background: transparent;
+  margin: 10px 0;
+  cursor: pointer;
+}
+
+/* WebKit Track for both panels */
+.attributes-panel input[type="range"]::-webkit-slider-runnable-track,
+.preferences-panel input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 8px;
+  background: #333;
+  border-radius: 4px;
+  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.3),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.1);
+}
+
+/* Firefox Track for both panels */
+.attributes-panel input[type="range"]::-moz-range-track,
+.preferences-panel input[type="range"]::-moz-range-track {
+  width: 100%;
+  height: 8px;
+  background: #333;
+  border-radius: 4px;
+  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.3),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.1);
+}
+
+/* WebKit Thumb for both panels */
+.attributes-panel input[type="range"]::-webkit-slider-thumb,
+.preferences-panel input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 24px;
+  width: 24px;
+  background: #d36;
+  border-radius: 50%;
+  margin-top: -8px;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3),
+    -2px -2px 5px rgba(255, 255, 255, 0.1);
+  transition: transform 0.2s ease-in-out, background 0.2s ease-in-out;
+}
+
+/* WebKit Thumb Hover & Active States for both panels */
+.attributes-panel input[type="range"]::-webkit-slider-thumb:hover,
+.preferences-panel input[type="range"]::-webkit-slider-thumb:hover {
+  background: #e47;
+}
+.attributes-panel input[type="range"]:active::-webkit-slider-thumb,
+.preferences-panel input[type="range"]:active::-webkit-slider-thumb {
+  transform: scale(1.1);
+}
+
+/* Firefox Thumb for both panels */
+.attributes-panel input[type="range"]::-moz-range-thumb,
+.preferences-panel input[type="range"]::-moz-range-thumb {
+  height: 24px;
+  width: 24px;
+  background: #d36;
+  border: none;
+  border-radius: 50%;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3),
+    -2px -2px 5px rgba(255, 255, 255, 0.1);
+  transition: transform 0.2s ease-in-out, background 0.2s ease-in-out;
+}
+
+/* Firefox Thumb Hover & Active States for both panels */
+.attributes-panel input[type="range"]::-moz-range-thumb:hover,
+.preferences-panel input[type="range"]::-moz-range-thumb:hover {
+  background: #e47;
+}
+.attributes-panel input[type="range"]:active::-moz-range-thumb,
+.preferences-panel input[type="range"]:active::-moz-range-thumb {
+  transform: scale(1.1);
+}
+
+/* General hover state for range input track for both panels */
+.attributes-panel input[type="range"]:hover::-webkit-slider-runnable-track,
+.preferences-panel input[type="range"]:hover::-webkit-slider-runnable-track,
+.attributes-panel input[type="range"]:hover::-moz-range-track,
+.preferences-panel input[type="range"]:hover::-moz-range-track {
+  box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.3),
+    inset -1px -1px 3px rgba(255, 255, 255, 0.1);
+}
+
+/* Bold label class for dropdown labels */
+.label {
+  color: #fff;
+  font-weight: bold;
+}
+
+.preferences-panel h3,
+.preferences-panel label {
+  /* Optionally adjust text color to complement the new background */
+  color: #f0a;
+}

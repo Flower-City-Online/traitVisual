@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 export interface IHumanAttributes {
   intelligence: number;
   empathy: number;
@@ -19,6 +21,14 @@ export interface INodeData {
   color: string;
   attributes: IHumanAttributes;
   preferences: IHumanAttributes;
+}
+
+function randomPosition(): THREE.Vector3 {
+  return new THREE.Vector3(
+    Math.random() * 10 - 5, // X coordinate between -5 and 5
+    Math.random() * 10 - 5, // Y coordinate between -5 and 5
+    Math.random() * 10 - 5 // Z coordinate between -5 and 5
+  );
 }
 
 export const nodeData: INodeData[] = [
@@ -56,7 +66,7 @@ export const nodeData: INodeData[] = [
   {
     id: 2,
     name: 'John',
-    position: [2, 1, -1],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#33FF57',
     attributes: {
@@ -87,7 +97,7 @@ export const nodeData: INodeData[] = [
   {
     id: 3,
     name: 'Alice',
-    position: [-2, 2, 1],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#3357FF',
     attributes: {
@@ -118,7 +128,7 @@ export const nodeData: INodeData[] = [
   {
     id: 4,
     name: 'Robert',
-    position: [2, -1, 2],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#F1C40F',
     attributes: {
@@ -149,7 +159,7 @@ export const nodeData: INodeData[] = [
   {
     id: 5,
     name: 'Emma',
-    position: [-2, -2, -2],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#FF33A8',
     attributes: {
@@ -180,7 +190,7 @@ export const nodeData: INodeData[] = [
   {
     id: 6,
     name: 'Michael',
-    position: [1, 2, 2],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#33FFF5',
     attributes: {
@@ -211,7 +221,7 @@ export const nodeData: INodeData[] = [
   {
     id: 7,
     name: 'Sophia',
-    position: [-1, -2, 2],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#FFA500',
     attributes: {
@@ -242,7 +252,7 @@ export const nodeData: INodeData[] = [
   {
     id: 8,
     name: 'William',
-    position: [2, -2, 1],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#800080',
     attributes: {
@@ -273,7 +283,7 @@ export const nodeData: INodeData[] = [
   {
     id: 9,
     name: 'Olivia',
-    position: [-2, 1, -2],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#008000',
     attributes: {
@@ -304,7 +314,7 @@ export const nodeData: INodeData[] = [
   {
     id: 10,
     name: 'David',
-    position: [2, 2, -1],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#FFC0CB',
     attributes: {
@@ -335,7 +345,7 @@ export const nodeData: INodeData[] = [
   {
     id: 11,
     name: 'Emily',
-    position: [-2, -1, 2],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#A52A2A',
     attributes: {
@@ -366,7 +376,7 @@ export const nodeData: INodeData[] = [
   {
     id: 12,
     name: 'Daniel',
-    position: [5, 0, -1],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#808080',
     attributes: {
@@ -397,7 +407,7 @@ export const nodeData: INodeData[] = [
   {
     id: 13,
     name: 'Mia',
-    position: [-2, 2, 0],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#FFD700',
     attributes: {
@@ -428,7 +438,7 @@ export const nodeData: INodeData[] = [
   {
     id: 14,
     name: 'Ethan',
-    position: [1, -2, 2],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#40E0D0',
     attributes: {
@@ -459,7 +469,7 @@ export const nodeData: INodeData[] = [
   {
     id: 15,
     name: 'Charlotte',
-    position: [-2, 4, -1],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#EE82EE',
     attributes: {
@@ -490,7 +500,7 @@ export const nodeData: INodeData[] = [
   {
     id: 16,
     name: 'Alexander',
-    position: [2, 1, -2],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#F5F5DC',
     attributes: {
@@ -521,7 +531,7 @@ export const nodeData: INodeData[] = [
   {
     id: 17,
     name: 'Amelia',
-    position: [-2, -2, 2],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#7FFFD4',
     attributes: {
@@ -552,7 +562,7 @@ export const nodeData: INodeData[] = [
   {
     id: 18,
     name: 'Benjamin',
-    position: [0, 5, -2],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#D2691E',
     attributes: {
@@ -583,7 +593,7 @@ export const nodeData: INodeData[] = [
   {
     id: 19,
     name: 'Abigail',
-    position: [-1, -5, 1],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#8A2BE2',
     attributes: {
@@ -614,7 +624,7 @@ export const nodeData: INodeData[] = [
   {
     id: 20,
     name: 'Lucas',
-    position: [2, 2, -2],
+    position: randomPosition().toArray(),
     isCentral: false,
     color: '#DC143C',
     attributes: {
