@@ -450,18 +450,35 @@ export class TraitVizComponent implements OnInit, AfterViewInit {
   }
 
   onSetAsSun(): void {
-    if (!this.selectedNode) return;
-    this.cluster.nodes.forEach((node) => node.setSun(false));
-    this.selectedNode.setSun(true, 5);
-    this.contextMenuRef.nativeElement.style.display = 'none';
-  }
+    if (!this.selectedNode || !this.cluster) return;
 
-  onHideNode(): void {
-    if (!this.selectedNode) return;
-    this.scene.remove(this.selectedNode);
-    this.cluster.nodes = this.cluster.nodes.filter(
-      (n) => n !== this.selectedNode
-    );
+    const newCentral = this.selectedNode;
+    const oldCentral = this.cluster.nodes.find((node) => node.isSun);
+    if (!newCentral || !oldCentral || newCentral === oldCentral) return;
+
+    const newPosition = newCentral.position.clone();
+    const oldPosition = oldCentral.position.clone();
+
+    newCentral.swap = {
+      start: newPosition,
+      end: new THREE.Vector3(0, 0, 0),
+      startTime: performance.now(),
+      duration: 5000,
+    };
+
+    oldCentral.swap = {
+      start: oldPosition,
+      end: newPosition,
+      startTime: performance.now(),
+      duration: 5000,
+    };
+
+    oldCentral.setSun(false);
+    newCentral.setSun(true, 5);
+
+    oldCentral.mesh.scale.set(1, 1, 1);
+    newCentral.mesh.scale.set(2, 2, 2);
+
     this.contextMenuRef.nativeElement.style.display = 'none';
   }
 
@@ -528,34 +545,6 @@ export class TraitVizComponent implements OnInit, AfterViewInit {
     this.controls.enabled = true;
   }
 
-  onDropdownChange(event: Event): void {
-    const target = event.target as HTMLSelectElement;
-    const index = parseInt(target.value);
-    if (!this.cluster) return;
-    const newCentral = this.cluster.nodes[index];
-    const oldCentral = this.cluster.nodes.find((node) => node.isSun);
-    if (!newCentral || !oldCentral || newCentral === oldCentral) return;
-    const newPosition = newCentral.position.clone();
-    const oldPosition = oldCentral.position.clone();
-    newCentral.swap = {
-      start: newPosition,
-      end: new THREE.Vector3(0, 0, 0),
-      startTime: performance.now(),
-      duration: 5000,
-    };
-    oldCentral.swap = {
-      start: oldPosition,
-      end: newPosition,
-      startTime: performance.now(),
-      duration: 5000,
-    };
-    oldCentral.setSun(false);
-    newCentral.setSun(true, 5);
-    oldCentral.mesh.scale.set(1, 1, 1);
-    newCentral.mesh.scale.set(2, 2, 2);
-    this.selectedAttrNode = null;
-  }
-
   onAttrDropdownChange(event: Event): void {
     const target = event.target as HTMLSelectElement;
     const selectedId = target.value;
@@ -619,25 +608,17 @@ export class TraitVizComponent implements OnInit, AfterViewInit {
     this.selectedAttrNode = null;
   }
 
-  onVisibilityChange(event: Event, node: Node): void {
-    if (node.isSun) {
-      return;
+  onHideNode(): void {
+    if (!this.selectedNode || this.selectedNode.isSun) return;
+  
+    this.cluster.remove(this.selectedNode);
+    const index = this.cluster.nodes.indexOf(this.selectedNode);
+    if (index > -1) {
+      this.cluster.nodes.splice(index, 1);
     }
-    const checkbox = event.target as HTMLInputElement;
-    if (!checkbox.checked) {
-      this.cluster.remove(node);
-      const index = this.cluster.nodes.indexOf(node);
-      if (index > -1) {
-        this.cluster.nodes.splice(index, 1);
-      }
-      this.hiddenNodes.push(node);
-    } else {
-      const hiddenIndex = this.hiddenNodes.indexOf(node);
-      if (hiddenIndex > -1) {
-        this.hiddenNodes.splice(hiddenIndex, 1);
-        this.cluster.nodes.push(node);
-        this.cluster.add(node);
-      }
-    }
+    this.hiddenNodes.push(this.selectedNode);
+  
+    this.contextMenuRef.nativeElement.style.display = 'none';
   }
+  
 }

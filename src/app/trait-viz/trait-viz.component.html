@@ -5,67 +5,20 @@
 
   <div #contextMenu class="context-menu">
     <h4 id="contextNodeName"></h4>
-    <button (click)="onSetAsSun()">Set as Sun</button>
-    <button (click)="onHideNode()">Hide Node</button>
+    <button (click)="onSetAsSun()" style="margin: 0 8px 0 0px">
+      Set as Central
+    </button>
+    <button
+      (click)="onHideNode()"
+      [disabled]="selectedNode?.isSun"
+      [ngClass]="{ 'disabled-button': selectedNode?.isSun }"
+    >
+      Remove
+    </button>
   </div>
 
-   <aside class="sidebar">
-    <!-- Visibility Panel for Active Nodes -->
-    <div class="visibility-panel" *ngIf="cluster?.nodes">
-      <h3>Toggle Sphere Visibility</h3>
-      <div class="checkbox-grid">
-        <div
-          class="checkbox-list"
-          *ngFor="let node of cluster.nodes; let i = index"
-        >
-          <label>
-            <!-- Disable checkbox for the central (sun) node -->
-            <input
-              type="checkbox"
-              style="margin-right: 8px"
-              [checked]="true"
-              [disabled]="node.isSun"
-              (change)="onVisibilityChange($event, node)"
-            />
-            {{ node.userData["name"] || "Node " + (i + 1) }}
-          </label>
-        </div>
-      </div>
-    </div>
-
-    <!-- Hidden Nodes Panel -->
-    <div class="visibility-panel" *ngIf="hiddenNodes && hiddenNodes.length">
-      <h3>Hidden Nodes</h3>
-      <div class="checkbox-grid">
-        <div
-          *ngFor="let node of hiddenNodes; let i = index"
-          class="checkbox-list"
-        >
-          <label>
-            <input
-              type="checkbox"
-              style="margin-right: 8px"
-              [checked]="false"
-              (change)="onVisibilityChange($event, node)"
-            />
-            {{ node.userData["name"] || "Node " + (i + 1) }}
-          </label>
-        </div>
-      </div>
-    </div>
-
+  <aside class="sidebar">
     <div class="dropdown-wrapper">
-      <label for="central-dropdown" class="label">Central Node</label>
-      <select
-        #dropdown
-        (change)="onDropdownChange($event)"
-        class="dropdown central-dropdown"
-      >
-        <option *ngFor="let node of cluster?.nodes; let i = index" [value]="i">
-          {{ node.userData["name"] || "Node " + (i + 1) }}
-        </option>
-      </select>
-
       <!-- Preferences Panel for the Central Node -->
       <div class="preferences-panel" *ngIf="currentCentral">
         <h3>
