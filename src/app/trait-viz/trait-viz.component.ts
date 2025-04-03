@@ -16,6 +16,7 @@ import {
   ISimulationConfigs,
   INodeData,
   ISwapAnimation,
+  IHumanAttributes,
 } from './trait-viz.types';
 
 class Cluster extends THREE.Object3D {
@@ -306,6 +307,7 @@ export class TraitVizComponent implements OnInit, AfterViewInit {
   draggingNode: Node | null = null;
   dragPlane: THREE.Plane = new THREE.Plane();
   dragOffset: THREE.Vector3 = new THREE.Vector3();
+  newNodeCounter: number = 1;
 
   constructor(private renderer2: Renderer2, private ngZone: NgZone) {}
 
@@ -482,6 +484,83 @@ export class TraitVizComponent implements OnInit, AfterViewInit {
     this.contextMenuRef.nativeElement.style.display = 'none';
   }
 
+  onAddNode(): void {
+    if (!this.cluster) return;
+
+    // Create a new INodeData object with random attributes/preferences and position
+    const newId = Date.now(); // For uniqueness; you can use another scheme if preferred.
+    const newName = `New-Node-[${this.newNodeCounter++}]`;
+
+    // Generate a random initial position; adjust these values as needed
+    const randomPosition: [number, number, number] = [
+      (Math.random() - 0.5) * 10,
+      (Math.random() - 0.5) * 10,
+      (Math.random() - 0.5) * 10,
+    ];
+
+    function randomAttributes(): IHumanAttributes {
+      return {
+        attrOne: Math.floor(Math.random() * 100),
+        attrTwo: Math.floor(Math.random() * 100),
+        attrThree: Math.floor(Math.random() * 100),
+      };
+    }
+
+    function randomPreferences(): IHumanAttributes {
+      return {
+        attrOne: Math.floor(Math.random() * 100),
+        attrTwo: Math.floor(Math.random() * 100),
+        attrThree: Math.floor(Math.random() * 100),
+      };
+    }
+
+    // You might also choose a random color; here we use green for non-central nodes
+    function generateRandomColor(): string {
+      let color: string;
+      do {
+        // Random RGB values
+        const r = Math.floor(Math.random() * 256); // Random red value between 0 and 255
+        const g = Math.floor(Math.random() * 256); // Random green value between 0 and 255
+        const b = Math.floor(Math.random() * 256); // Random blue value between 0 and 255
+    
+        // Convert RGB to Hex color format
+        color = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+      } while (isColorInForbiddenRange(color)); // Repeat if the color is in forbidden range
+    
+      return color;
+    }
+    
+    function isColorInForbiddenRange(color: string): boolean {
+      const r = parseInt(color.substring(1, 3), 16); // Get the red component from the hex color
+      return r >= 153 && r <= 255; // Forbidden range for red component (from #990000 to #ff0000)
+    }
+    
+    // Example usage:
+    const newColor = generateRandomColor();
+    console.log(newColor); // Random color not in the forbidden red range
+    
+
+    // Create a new node data object; adjust the interface if needed
+    const newNodeData: INodeData = {
+      id: newId,
+      name: newName,
+      color: generateRandomColor(),
+      isSun: false,
+      initialPosition: randomPosition,
+      attributes: randomAttributes(),
+      preferences: randomPreferences(),
+    };
+
+    // Create the new Node instance
+    const newNode = new Node(newNodeData, this.cluster.options);
+
+    // Add to the cluster and scene
+    this.cluster.nodes.push(newNode);
+    this.cluster.add(newNode);
+
+    // Optionally, you could adjust the new node's scale or other properties here
+  }
+
   private onMouseMove(event: MouseEvent): void {
     if (this.draggingNode) return;
 
@@ -610,15 +689,14 @@ export class TraitVizComponent implements OnInit, AfterViewInit {
 
   onHideNode(): void {
     if (!this.selectedNode || this.selectedNode.isSun) return;
-  
+
     this.cluster.remove(this.selectedNode);
     const index = this.cluster.nodes.indexOf(this.selectedNode);
     if (index > -1) {
       this.cluster.nodes.splice(index, 1);
     }
     this.hiddenNodes.push(this.selectedNode);
-  
+
     this.contextMenuRef.nativeElement.style.display = 'none';
   }
-  
 }

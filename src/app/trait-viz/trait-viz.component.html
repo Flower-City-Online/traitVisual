@@ -1,35 +1,30 @@
-<div #tooltip class="tooltip"></div>
-
 <div class="app-wrapper">
   <canvas #rendererCanvas></canvas>
 
+  <!-- Floating + Button -->
+  <button class="add-node-button" (click)="onAddNode()">+</button>
+
   <div #contextMenu class="context-menu">
     <h4 id="contextNodeName"></h4>
-    <button (click)="onSetAsSun()" style="margin: 0 8px 0 0px">
-      Set as Central
-    </button>
-    <button
-      (click)="onHideNode()"
-      [disabled]="selectedNode?.isSun"
-      [ngClass]="{ 'disabled-button': selectedNode?.isSun }"
-    >
-      Remove
-    </button>
-  </div>
+    <div class="context-actions">
+      <button (click)="onSetAsSun()" style="margin: 0 8px 0 0px">
+        Set as Central
+      </button>
+      <button
+        (click)="onHideNode()"
+        [disabled]="selectedNode?.isSun"
+        [ngClass]="{ 'disabled-button': selectedNode?.isSun }"
+      >
+        Remove
+      </button>
+    </div>
 
-  <aside class="sidebar">
-    <div class="dropdown-wrapper">
-      <!-- Preferences Panel for the Central Node -->
-      <div class="preferences-panel" *ngIf="currentCentral">
-        <h3>
-          Edit Preferences for {{ currentCentral.userData["name"] }} (Central)
-        </h3>
+    <!-- Dynamic Panel: Preferences for Central or Attributes for Non-Central -->
+    <div *ngIf="selectedNode">
+      <!-- Preferences Panel for Central Node -->
+      <div *ngIf="selectedNode.isSun" class="panel">
         <div
-          *ngFor="
-            let pref of currentCentral.preferences;
-            let i = index;
-            trackBy: trackByIndex
-          "
+          *ngFor="let pref of selectedNode.preferences; let i = index; trackBy: trackByIndex"
           class="attribute-list"
         >
           <label>
@@ -38,52 +33,33 @@
               type="range"
               min="0"
               max="100"
-              [(ngModel)]="currentCentral.preferences[i]"
+              [(ngModel)]="selectedNode.preferences[i]"
               (ngModelChange)="onPreferenceChange(i, $event)"
             />
-            <span>{{ currentCentral.preferences[i] }}</span>
+            <span>{{ selectedNode.preferences[i] }}</span>
           </label>
         </div>
       </div>
 
-      <!-- Attribute Editing Dropdown: only non-sun nodes -->
-      <label for="attr-dropdown" class="label"
-        >Select Node To Edit Attribute</label
-      >
-      <select
-        #attrDropdown
-        (change)="onAttrDropdownChange($event)"
-        class="dropdown attr-dropdown"
-      >
-        <option *ngFor="let node of nonSuns" [value]="node.userData['id']">
-          {{ node.userData["name"] || "Node " + node.userData["id"] }}
-        </option>
-      </select>
-    </div>
-
-    <!-- Attributes Panel: for the selected node or fallback to the central node -->
-    <div class="attributes-panel" *ngIf="editableNode">
-      <h3>Adjust Attributes for {{ editableNode.userData["name"] }}</h3>
-      <div
-        *ngFor="
-          let attr of editableNode.attributes;
-          let i = index;
-          trackBy: trackByIndex
-        "
-        class="attribute-list"
-      >
-        <label>
-          Attribute {{ i + 1 }}:
-          <input
-            type="range"
-            min="0"
-            max="100"
-            [(ngModel)]="editableNode.attributes[i]"
-            (ngModelChange)="onAttributeChange(i, $event)"
-          />
-          <span>{{ editableNode.attributes[i] }}</span>
-        </label>
+      <!-- Attributes Panel for Non-Central Nodes -->
+      <div *ngIf="!selectedNode.isSun" class="panel">
+        <div
+          *ngFor="let attr of selectedNode.attributes; let i = index; trackBy: trackByIndex"
+          class="attribute-list"
+        >
+          <label>
+            Attribute {{ i + 1 }}:
+            <input
+              type="range"
+              min="0"
+              max="100"
+              [(ngModel)]="selectedNode.attributes[i]"
+              (ngModelChange)="onAttributeChange(i, $event)"
+            />
+            <span>{{ selectedNode.attributes[i] }}</span>
+          </label>
+        </div>
       </div>
     </div>
-  </aside>
+  </div>
 </div>
