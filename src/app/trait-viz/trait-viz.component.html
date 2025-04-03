@@ -3,12 +3,21 @@
 <div class="app-wrapper">
   <canvas #rendererCanvas></canvas>
 
-  <aside class="sidebar">
+  <div #contextMenu class="context-menu">
+    <h4 id="contextNodeName"></h4>
+    <button (click)="onSetAsSun()">Set as Sun</button>
+    <button (click)="onHideNode()">Hide Node</button>
+  </div>
+
+   <aside class="sidebar">
     <!-- Visibility Panel for Active Nodes -->
     <div class="visibility-panel" *ngIf="cluster?.nodes">
       <h3>Toggle Sphere Visibility</h3>
       <div class="checkbox-grid">
-        <div class="checkbox-list" *ngFor="let node of cluster.nodes; let i = index">
+        <div
+          class="checkbox-list"
+          *ngFor="let node of cluster.nodes; let i = index"
+        >
           <label>
             <!-- Disable checkbox for the central (sun) node -->
             <input
@@ -18,7 +27,7 @@
               [disabled]="node.isSun"
               (change)="onVisibilityChange($event, node)"
             />
-            {{ node.userData['name'] || 'Node ' + (i + 1) }}
+            {{ node.userData["name"] || "Node " + (i + 1) }}
           </label>
         </div>
       </div>
@@ -28,7 +37,10 @@
     <div class="visibility-panel" *ngIf="hiddenNodes && hiddenNodes.length">
       <h3>Hidden Nodes</h3>
       <div class="checkbox-grid">
-        <div *ngFor="let node of hiddenNodes; let i = index" class="checkbox-list">
+        <div
+          *ngFor="let node of hiddenNodes; let i = index"
+          class="checkbox-list"
+        >
           <label>
             <input
               type="checkbox"
@@ -36,7 +48,7 @@
               [checked]="false"
               (change)="onVisibilityChange($event, node)"
             />
-            {{ node.userData['name'] || 'Node ' + (i + 1) }}
+            {{ node.userData["name"] || "Node " + (i + 1) }}
           </label>
         </div>
       </div>
@@ -44,16 +56,29 @@
 
     <div class="dropdown-wrapper">
       <label for="central-dropdown" class="label">Central Node</label>
-      <select #dropdown (change)="onDropdownChange($event)" class="dropdown central-dropdown">
+      <select
+        #dropdown
+        (change)="onDropdownChange($event)"
+        class="dropdown central-dropdown"
+      >
         <option *ngFor="let node of cluster?.nodes; let i = index" [value]="i">
-          {{ node.userData['name'] || 'Node ' + (i + 1) }}
+          {{ node.userData["name"] || "Node " + (i + 1) }}
         </option>
       </select>
 
       <!-- Preferences Panel for the Central Node -->
       <div class="preferences-panel" *ngIf="currentCentral">
-        <h3>Edit Preferences for {{ currentCentral.userData['name'] }} (Central)</h3>
-        <div *ngFor="let pref of currentCentral.preferences; let i = index; trackBy: trackByIndex" class="attribute-list">
+        <h3>
+          Edit Preferences for {{ currentCentral.userData["name"] }} (Central)
+        </h3>
+        <div
+          *ngFor="
+            let pref of currentCentral.preferences;
+            let i = index;
+            trackBy: trackByIndex
+          "
+          class="attribute-list"
+        >
           <label>
             Preference {{ i + 1 }}:
             <input
@@ -69,18 +94,31 @@
       </div>
 
       <!-- Attribute Editing Dropdown: only non-sun nodes -->
-      <label for="attr-dropdown" class="label">Select Node To Edit Attribute</label>
-      <select #attrDropdown (change)="onAttrDropdownChange($event)" class="dropdown attr-dropdown">
+      <label for="attr-dropdown" class="label"
+        >Select Node To Edit Attribute</label
+      >
+      <select
+        #attrDropdown
+        (change)="onAttrDropdownChange($event)"
+        class="dropdown attr-dropdown"
+      >
         <option *ngFor="let node of nonSuns" [value]="node.userData['id']">
-          {{ node.userData['name'] || 'Node ' + node.userData['id'] }}
+          {{ node.userData["name"] || "Node " + node.userData["id"] }}
         </option>
       </select>
     </div>
 
     <!-- Attributes Panel: for the selected node or fallback to the central node -->
     <div class="attributes-panel" *ngIf="editableNode">
-      <h3>Adjust Attributes for {{ editableNode.userData['name'] }}</h3>
-      <div *ngFor="let attr of editableNode.attributes; let i = index; trackBy: trackByIndex" class="attribute-list">
+      <h3>Adjust Attributes for {{ editableNode.userData["name"] }}</h3>
+      <div
+        *ngFor="
+          let attr of editableNode.attributes;
+          let i = index;
+          trackBy: trackByIndex
+        "
+        class="attribute-list"
+      >
         <label>
           Attribute {{ i + 1 }}:
           <input

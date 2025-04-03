@@ -227,8 +227,10 @@ class Node extends THREE.Object3D {
           const compatibility = this.calculateAttributeCompatibility(other);
           const repulsion =
             this.options.planet.repulsion *
-            (this.options.planet.repulsionInitializationThreshold - distance) *
-            (1 - compatibility) + 0.0001;
+              (this.options.planet.repulsionInitializationThreshold -
+                distance) *
+              (1 - compatibility) +
+            0.0001;
 
           const repulsionDirection = new THREE.Vector3()
             .subVectors(this.position, other.position)
@@ -285,6 +287,7 @@ export class TraitVizComponent implements OnInit, AfterViewInit {
   @ViewChild('tooltip', { static: true }) tooltipRef!: ElementRef;
   @ViewChild('dropdown', { static: true }) dropdownRef!: ElementRef;
   @ViewChild('attrDropdown', { static: true }) attrDropdownRef!: ElementRef;
+  @ViewChild('contextMenu', { static: true }) contextMenuRef!: ElementRef;
 
   public increaseNodes: boolean = false;
   public originalNodeData: INodeData[] = nodeData;
@@ -299,6 +302,7 @@ export class TraitVizComponent implements OnInit, AfterViewInit {
   cluster!: Cluster;
   tooltipVisible = false;
   selectedAttrNode: Node | null = null;
+  selectedNode: Node | null = null;
   draggingNode: Node | null = null;
   dragPlane: THREE.Plane = new THREE.Plane();
   dragOffset: THREE.Vector3 = new THREE.Vector3();
@@ -312,6 +316,13 @@ export class TraitVizComponent implements OnInit, AfterViewInit {
 
   ngAfterViewInit(): void {
     this.animate();
+
+    this.renderer2.listen(
+      this.canvasRef.nativeElement,
+      'contextmenu',
+      (event: MouseEvent) => this.onRightClick(event)
+    );
+
     this.renderer2.listen('window', 'mousemove', (event: MouseEvent) =>
       this.onMouseMove(event)
     );
@@ -394,7 +405,6 @@ export class TraitVizComponent implements OnInit, AfterViewInit {
         this.controls.update();
         if (this.cluster) this.cluster.update();
         this.renderer.render(this.scene, this.camera);
-        this.checkHover();
       };
       loop();
     });
@@ -406,44 +416,65 @@ export class TraitVizComponent implements OnInit, AfterViewInit {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
-  private onMouseMove(event: MouseEvent): void {
-    if (this.draggingNode) return;
+  private onRightClick(event: MouseEvent): void {
+    event.preventDefault(); // Prevent the default browser menu
+
+    // Convert mouse position to Three.js coordinates
     this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-    this.tooltipRef.nativeElement.style.left = event.clientX + 10 + 'px';
-    this.tooltipRef.nativeElement.style.top = event.clientY + 10 + 'px';
-  }
 
-  private checkHover(): void {
-    if (this.draggingNode) return;
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    if (!this.cluster) return;
     const intersects = this.raycaster.intersectObjects(
       this.cluster.children,
       true
     );
+
     if (intersects.length > 0) {
-      const hoveredNode = intersects[0].object.parent as Node;
-      const nodeIndex = this.cluster.nodes.indexOf(hoveredNode);
-      if (nodeIndex !== -1) {
-        this.tooltipRef.nativeElement.innerText =
-          hoveredNode.userData['name'] || `Node ${nodeIndex + 1}`;
-        if (!this.tooltipVisible) {
-          this.tooltipVisible = true;
-          this.tooltipRef.nativeElement.style.opacity = '1';
-          this.tooltipRef.nativeElement.style.display = 'block';
-        }
-        return;
-      }
+      this.selectedNode = intersects[0].object.parent as Node;
+      const nodeName = this.selectedNode.userData['name'] || 'Node';
+
+      // Position and display the context menu
+      const menuElement = this.contextMenuRef.nativeElement;
+      menuElement.style.display = 'block';
+      menuElement.style.left = `${event.clientX}px`;
+      menuElement.style.top = `${event.clientY}px`;
+
+      // Update menu content
+      menuElement.querySelector('#contextNodeName').textContent = nodeName;
+
+      // Hide menu when clicking elsewhere
+      this.renderer2.listen('document', 'click', () => {
+        menuElement.style.display = 'none';
+      });
     }
-    if (this.tooltipVisible) {
-      this.tooltipVisible = false;
-      this.tooltipRef.nativeElement.style.opacity = '0';
-      setTimeout(() => {
-        if (!this.tooltipVisible)
-          this.tooltipRef.nativeElement.style.display = 'none';
-      }, 200);
-    }
+  }
+
+  onSetAsSun(): void {
+    if (!this.selectedNode) return;
+    this.cluster.nodes.forEach((node) => node.setSun(false));
+    this.selectedNode.setSun(true, 5);
+    this.contextMenuRef.nativeElement.style.display = 'none';
+  }
+
+  onHideNode(): void {
+    if (!this.selectedNode) return;
+    this.scene.remove(this.selectedNode);
+    this.cluster.nodes = this.cluster.nodes.filter(
+      (n) => n !== this.selectedNode
+    );
+    this.contextMenuRef.nativeElement.style.display = 'none';
+  }
+
+  private onMouseMove(event: MouseEvent): void {
+    if (this.draggingNode) return;
+
+    // Update mouse coordinates
+    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Update the position of the tooltip based on the mouse coordinates
+    this.tooltipRef.nativeElement.style.left = event.clientX + 10 + 'px';
+    this.tooltipRef.nativeElement.style.top = event.clientY + 10 + 'px';
   }
 
   private onDragStart(event: MouseEvent): void {
