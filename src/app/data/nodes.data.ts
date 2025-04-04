@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { INodeData } from './trait-viz.types';
+import { INodeData } from '../app.types';
 
 /**
  * Returns a random Vector3 with a fixed magnitude.
