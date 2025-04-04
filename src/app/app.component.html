@@ -11,7 +11,7 @@
         Set as Central
       </button>
       <button
-        (click)="onHideNode()"
+        (click)="onRemoveNode()"
         [disabled]="selectedNode?.isSun"
         [ngClass]="{ 'disabled-button': selectedNode?.isSun }"
       >
