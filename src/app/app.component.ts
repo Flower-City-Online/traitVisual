@@ -16,11 +16,7 @@ import { INodeData, IHumanAttributes } from './app.types';
 import { Cluster } from './objects/Cluster';
 import { Node } from './objects/Node';
 import { handleRightClick } from './utils/on-right-click.util';
-import {
-  createSmokeTexture,
-  createSmokeParticles,
-  createCursorSphere,
-} from './services/cursorEffects';
+import { addNode, removeNode } from './services/node-actions';
 
 @Component({
   selector: 'app-root',
@@ -54,11 +50,6 @@ export class AppComponent implements OnInit, AfterViewInit {
   dragPlane: THREE.Plane = new THREE.Plane();
   dragOffset: THREE.Vector3 = new THREE.Vector3();
   newNodeCounter: number = 1;
-  cursorSphere!: THREE.Mesh;
-
-  private smokeTexture!: THREE.Texture;
-  private smokeParticles!: THREE.Points;
-  private smokeParticleCount = 150;
 
   constructor(private renderer2: Renderer2, private ngZone: NgZone) {}
 
@@ -135,16 +126,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-    // ... add lights
-
-    // Use the imported functions to create smoke texture, particles, and cursor sphere.
-    this.smokeTexture = createSmokeTexture();
-    this.smokeParticles = createSmokeParticles(
-      this.smokeTexture,
-      this.smokeParticleCount
-    );
-    this.cursorSphere = createCursorSphere(this.smokeParticles);
-    this.scene.add(this.cursorSphere);
+    // ... add other lights or effects as needed
   }
 
   private loadNodes(): void {
@@ -206,71 +188,6 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.contextMenuRef.nativeElement.style.display = 'none';
   }
 
-  onAddNode(): void {
-    if (!this.cluster) return;
-    const newId = Date.now();
-    const newName = `New-Node-[${this.newNodeCounter++}]`;
-    const randomPosition: [number, number, number] = [
-      (Math.random() - 0.5) * 10,
-      (Math.random() - 0.5) * 10,
-      (Math.random() - 0.5) * 10,
-    ];
-    function randomAttributes(): IHumanAttributes {
-      return {
-        attrOne: Math.floor(Math.random() * 100),
-        attrTwo: Math.floor(Math.random() * 100),
-        attrThree: Math.floor(Math.random() * 100),
-      };
-    }
-    function randomPreferences(): IHumanAttributes {
-      return {
-        attrOne: Math.floor(Math.random() * 100),
-        attrTwo: Math.floor(Math.random() * 100),
-        attrThree: Math.floor(Math.random() * 100),
-      };
-    }
-    function generateRandomColor(): string {
-      let color: string;
-      do {
-        const r = Math.floor(Math.random() * 256);
-        const g = Math.floor(Math.random() * 256);
-        const b = Math.floor(Math.random() * 256);
-        color = `#${r.toString(16).padStart(2, '0')}${g
-          .toString(16)
-          .padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-      } while (isColorInForbiddenRange(color));
-      return color;
-    }
-    function isColorInForbiddenRange(color: string): boolean {
-      const r = parseInt(color.substring(1, 3), 16);
-      return r >= 153 && r <= 255;
-    }
-    const newColor = generateRandomColor();
-    console.log(newColor);
-    const newNodeData: INodeData = {
-      id: newId,
-      name: newName,
-      color: generateRandomColor(),
-      isSun: false,
-      initialPosition: randomPosition,
-      attributes: randomAttributes(),
-      preferences: randomPreferences(),
-    };
-    const newNode = new Node(newNodeData, this.cluster.options);
-    this.cluster.nodes.push(newNode);
-    this.cluster.add(newNode);
-  }
-
-  // Add this function
-  private updateCursorSpherePosition(): void {
-    this.raycaster.setFromCamera(this.mouse, this.camera);
-    const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-    const intersection = new THREE.Vector3();
-    if (this.raycaster.ray.intersectPlane(planeZ, intersection)) {
-      this.cursorSphere.position.copy(intersection);
-    }
-  }
-
   private onMouseMove(event: MouseEvent): void {
     if (this.draggingNode) return;
     this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -330,16 +247,6 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.controls.enabled = true;
   }
 
-  onAttrDropdownChange(event: Event): void {
-    const target = event.target as HTMLSelectElement;
-    const selectedId = target.value;
-    if (!this.cluster) return;
-    const node = this.cluster.nodes.find(
-      (node) => node.userData['id'].toString() === selectedId
-    );
-    this.selectedAttrNode = node || null;
-  }
-
   onAttributeChange(index: number, event: Event): void {
     const input = event.target as HTMLInputElement;
     const newValue = Number(input.value);
@@ -360,76 +267,26 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
   }
 
-  // onNodesToggle(event: Event): void {
-  //   let newNodeData: INodeData[];
-  //   if (this.increaseNodes) {
-  //     newNodeData = [
-  //       ...this.originalNodeData,
-  //       ...this.originalNodeData.map((node, index) => ({
-  //         ...node,
-  //         id: node.id + this.originalNodeData.length,
-  //         name: node.name + ' copy',
-  //         initialPosition: [
-  //           node.initialPosition[0] + Math.random() * 5,
-  //           node.initialPosition[1] + Math.random() * 5,
-  //           node.initialPosition[2] + Math.random() * 5,
-  //         ] as [number, number, number],
-  //       })),
-  //     ];
-  //   } else {
-  //     newNodeData = this.originalNodeData;
-  //   }
-  //   if (this.cluster) {
-  //     this.scene.remove(this.cluster);
-  //   }
-  //   this.cluster = new Cluster(newNodeData);
-  //   this.scene.add(this.cluster);
-  //   const newCentral =
-  //     this.cluster.nodes.find((node) => node.isSun) || this.cluster.nodes[0];
-  //   newCentral.setSun(true, 5);
-  //   newCentral.mesh.scale.set(2, 2, 2);
-  //   this.selectedAttrNode = null;
-  // }
+  onAddNode(): void {
+    if (!this.cluster) return;
+    this.newNodeCounter = addNode(this.cluster, this.newNodeCounter);
+  }
 
   onRemoveNode(): void {
-    if (!this.selectedNode || this.selectedNode.isSun) return;
-    this.cluster.remove(this.selectedNode);
-    const index = this.cluster.nodes.indexOf(this.selectedNode);
-    if (index > -1) {
-      this.cluster.nodes.splice(index, 1);
-    }
-    this.hiddenNodes.push(this.selectedNode);
-    this.contextMenuRef.nativeElement.style.display = 'none';
+    removeNode(
+      this.cluster,
+      this.selectedNode,
+      this.hiddenNodes,
+      this.contextMenuRef.nativeElement
+    );
   }
 
   private animate(): void {
     this.ngZone.runOutsideAngular(() => {
       const loop = () => {
         requestAnimationFrame(loop);
-
-        // Existing updates
         this.controls.update();
         if (this.cluster) this.cluster.update();
-        this.updateCursorSpherePosition();
-
-        // Animate smoke particles (if they exist)
-        if (this.smokeParticles) {
-          const positions =
-            this.smokeParticles.geometry.attributes['position'].array;
-          for (let i = 0; i < this.smokeParticleCount; i++) {
-            // Gentle upward drift + slight randomness
-            positions[i * 3 + 1] += 0.003 + Math.random() * 0.002;
-            positions[i * 3] += (Math.random() - 0.5) * 0.001;
-
-            // Reset particles that drift too far
-            if (positions[i * 3 + 1] > 0.3) {
-              positions[i * 3 + 1] = -0.3;
-            }
-          }
-          this.smokeParticles.geometry.attributes['position'].needsUpdate =
-            true;
-        }
-
         this.renderer.render(this.scene, this.camera);
       };
       loop();
