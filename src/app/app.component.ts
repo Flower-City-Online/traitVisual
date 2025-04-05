@@ -45,6 +45,13 @@ export class AppComponent implements OnInit, AfterViewInit {
   public originalNodeData: INodeData[] = nodeData;
   hiddenNodes: Node[] = [];
 
+  tooltipText: string = `
+  - You can control the camera using the panel below.
+  - You can add a new node by clicking the "+" button.
+  - RIGHT CLICK or HOLD TOUCH on a sphere to open a control panel.
+  - Compare PREFERENCES of central node with ATTRIBUTES of other nodes.
+`;
+
   scene!: THREE.Scene;
   camera!: THREE.PerspectiveCamera;
   renderer!: THREE.WebGLRenderer;
@@ -126,21 +133,21 @@ export class AppComponent implements OnInit, AfterViewInit {
   private initScene(): void {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(
-      90,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
+      90, // Field of view (FoV)
+      window.innerWidth / window.innerHeight, // Aspect ratio
+      0.1, // Near clipping plane
+      1000 // Far clipping plane
     );
-    this.camera.position.set(0, 0, 5);
+    this.camera.position.set(0, 0, 5); // Set camera position
     this.renderer = new THREE.WebGLRenderer({
-      canvas: this.canvasRef.nativeElement,
-      antialias: true,
+      canvas: this.canvasRef.nativeElement, // The canvas to render to
+      antialias: true, // Smooth rendering
     });
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setSize(window.innerWidth, window.innerHeight); // Set size of renderer
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping = true;
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-    // ... add other lights or effects as needed
+    this.controls.enableDamping = true; // Enables smooth transitions when dragging
+    this.scene.add(new THREE.AmbientLight(0xbbbbbb, 1)); // Add ambient light
+    this.scene.add(new THREE.DirectionalLight(0xffffff, 1)); // Add directional light
 
     // Create custom cursor geometry
     const cursorSphereGeometry = new THREE.SphereGeometry(0.2, 128, 128);
@@ -176,7 +183,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const initialCentral =
       this.cluster.nodes.find((node) => node.isSun) || this.cluster.nodes[0];
     initialCentral.setSun(true, 5);
-    initialCentral.mesh.scale.set(2, 2, 2);
+    initialCentral.mesh.scale.set(3, 3, 3);
   }
 
   private onWindowResize(): void {

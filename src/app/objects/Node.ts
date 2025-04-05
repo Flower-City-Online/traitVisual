@@ -1,9 +1,5 @@
 import * as THREE from 'three';
-import {
-  ISimulationConfigs,
-  INodeData,
-  ISwapAnimation,
-} from '../app.types';
+import { ISimulationConfigs, INodeData, ISwapAnimation } from '../app.types';
 
 export class Node extends THREE.Object3D {
   options: ISimulationConfigs;
@@ -46,10 +42,33 @@ export class Node extends THREE.Object3D {
 
   setSun(state: boolean = !this.isSun, preference?: number): void {
     this.isSun = state;
-    // Use isSun to determine color: red for sun, green for planet.
-    (this.mesh.material as THREE.MeshStandardMaterial).color = new THREE.Color(
-      state ? 'red' : 'green'
-    );
+
+    // Build a neomorphic‑style purple material
+    if (state) {
+      this.mesh.material = new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color('#9B4DFF'), // Soft purple (Tailwind's purple-400 equivalent)
+        emissive: new THREE.Color('#7C3AED'), // Darker purple for the "glow" or highlight
+        emissiveIntensity: 0.3, // Soft light glow
+        metalness: 0.1, // Low metalness for soft, diffused light
+        roughness: 0.8, // Higher roughness for softer highlights
+        flatShading: true, // Gives the surface a more 'flat' look which is common in neumorphism
+      });
+      // Apply a slight inset shadow effect by modifying the emissive and ambient lighting
+      this.mesh.material.side = THREE.DoubleSide;
+      this.mesh.material.shadowSide = THREE.FrontSide;
+      this.mesh.material.opacity = 1;
+    } else {
+      // fallback “planet” look
+      this.mesh.material = new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color('#22C55E'), // Tailwind green‑500 for contrast
+        emissive: new THREE.Color('#000000'),
+        emissiveIntensity: 0,
+        metalness: 0.1,
+        roughness: 0.8,
+        clearcoat: 0,
+      });
+    }
+
     if (preference !== undefined) {
       this.preference = preference;
     }

@@ -1,33 +1,36 @@
 <div class="app-wrapper">
   <canvas #rendererCanvas></canvas>
 
-  <div class="camera-controls">
-    <button mat-icon-button (click)="onAddNode()" [matTooltip]="'Add Node'">
-      <mat-icon>add</mat-icon>
-    </button>
+  <button
+    mat-icon-button
+    [matTooltip]="tooltipText"
+    matTooltipClass="custom-tooltip"
+    class="info-button"
+  >
+    <mat-icon>info_outline</mat-icon>
+  </button>
+  
+  <button
+    mat-icon-button
+    (click)="onAddNode()"
+    [matTooltip]="'Add Node'"
+    class="add-node-button"
+  >
+    <mat-icon>add</mat-icon>
+  </button>
 
+  <div class="camera-controls">
+    <!-- <div class="rotate-zoom-box"> -->
     <!-- Rotate Group -->
+    <!-- <div class="internal-flex"> -->
     <button mat-icon-button (click)="rotateLeft()" matTooltip="Rotate Left">
       <mat-icon>rotate_left</mat-icon>
     </button>
     <button mat-icon-button (click)="rotateRight()" matTooltip="Rotate Right">
       <mat-icon>rotate_right</mat-icon>
     </button>
-
-    <!-- Pan -->
-    <button mat-icon-button (click)="panUp()" matTooltip="Pan Up">
-      <mat-icon>arrow_upward</mat-icon>
-    </button>
-    <button mat-icon-button (click)="panDown()" matTooltip="Pan Down">
-      <mat-icon>arrow_downward</mat-icon>
-    </button>
-    <button mat-icon-button (click)="panLeft()" matTooltip="Pan Left">
-      <mat-icon>arrow_back</mat-icon>
-    </button>
-    <button mat-icon-button (click)="panRight()" matTooltip="Pan Right">
-      <mat-icon>arrow_forward</mat-icon>
-    </button>
-
+    <!-- </div>
+      <div class="internal-flex"> -->
     <!-- Zoom -->
     <button mat-icon-button (click)="zoomIn()" matTooltip="Zoom In">
       <mat-icon>zoom_in</mat-icon>
@@ -35,6 +38,28 @@
     <button mat-icon-button (click)="zoomOut()" matTooltip="Zoom Out">
       <mat-icon>zoom_out</mat-icon>
     </button>
+    <!-- </div>
+    </div> -->
+
+    <!-- <div class="pan-box">
+      <div class="internal-flex"> -->
+    <!-- Pan -->
+    <button mat-icon-button (click)="panUp()" matTooltip="Pan Up">
+      <mat-icon>arrow_upward</mat-icon>
+    </button>
+    <button mat-icon-button (click)="panDown()" matTooltip="Pan Down">
+      <mat-icon>arrow_downward</mat-icon>
+    </button>
+    <!-- </div>
+      <div class="internal-flex"> -->
+    <button mat-icon-button (click)="panLeft()" matTooltip="Pan Left">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <button mat-icon-button (click)="panRight()" matTooltip="Pan Right">
+      <mat-icon>arrow_forward</mat-icon>
+    </button>
+    <!-- </div>
+    </div> -->
 
     <button
       mat-icon-button
