@@ -95,7 +95,7 @@ export class Node extends THREE.Object3D {
       force.add(directionToSun.multiplyScalar(repulsionForce));
     } else {
       const attractionForce =
-        2 * this.options.sun.attraction * error * compatibility + 0.018;
+        2 * this.options.sun.attraction * error * compatibility + 0.001;
       force.add(directionToSun.multiplyScalar(attractionForce));
     }
 
@@ -108,7 +108,7 @@ export class Node extends THREE.Object3D {
     nodes.forEach((other) => {
       if (other !== this && !other.isSun) {
         const compatibility = this.calculateAttributeCompatibility(other);
-        const forceMagnitude = attractionConstant * compatibility - 0.0014;
+        const forceMagnitude = attractionConstant * compatibility - 0.001;
         const attractionDirection = new THREE.Vector3()
           .subVectors(other.position, this.position)
           .normalize();
@@ -130,7 +130,7 @@ export class Node extends THREE.Object3D {
               (this.options.planet.repulsionInitializationThreshold -
                 distance) *
               (1 - compatibility) +
-            0.0001;
+            0.001;
           const repulsionDirection = new THREE.Vector3()
             .subVectors(this.position, other.position)
             .normalize();

@@ -17,13 +17,22 @@ import { Cluster } from './objects/Cluster';
 import { Node } from './objects/Node';
 import { handleRightClick } from './utils/on-right-click.util';
 import { addNode, removeNode } from './services/node-actions';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+  ],
   templateUrl: './app.component.html',
-  styleUrls: ['./app.component.scss'],
+  styleUrls: ['./styles/app.component.scss', './styles/control-panel.scss'],
 })
 export class AppComponent implements OnInit, AfterViewInit {
   @ViewChild('rendererCanvas', { static: true }) canvasRef!: ElementRef;
@@ -50,6 +59,11 @@ export class AppComponent implements OnInit, AfterViewInit {
   dragPlane: THREE.Plane = new THREE.Plane();
   dragOffset: THREE.Vector3 = new THREE.Vector3();
   newNodeCounter: number = 1;
+  isCameraLocked = false;
+
+  // Cursor objects
+  private cursorMesh!: THREE.Mesh;
+  private ringMesh!: THREE.Mesh;
 
   constructor(private renderer2: Renderer2, private ngZone: NgZone) {}
 
@@ -67,12 +81,12 @@ export class AppComponent implements OnInit, AfterViewInit {
       (event: MouseEvent) => this.onRightClick(event)
     );
 
-    this.renderer2.listen('window', 'mousemove', (event: MouseEvent) =>
-      this.onMouseMove(event)
-    );
     window.addEventListener('resize', () => this.onWindowResize());
 
     const canvas = this.canvasRef.nativeElement;
+    this.renderer2.listen('window', 'mousemove', (event: MouseEvent) =>
+      this.onMouseMove(event)
+    );
     this.renderer2.listen(canvas, 'mousedown', (event: MouseEvent) =>
       this.onDragStart(event)
     );
@@ -112,12 +126,12 @@ export class AppComponent implements OnInit, AfterViewInit {
   private initScene(): void {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(
-      75,
+      90,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    this.camera.position.set(0, 0, 6);
+    this.camera.position.set(0, 0, 5);
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvasRef.nativeElement,
       antialias: true,
@@ -127,6 +141,33 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.controls.enableDamping = true;
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.8));
     // ... add other lights or effects as needed
+
+    // Create custom cursor geometry
+    const cursorSphereGeometry = new THREE.SphereGeometry(0.2, 128, 128);
+    const cursorSphereMaterial = new THREE.MeshStandardMaterial({
+      color: 0xaaaaaa,
+      metalness: 1.0,
+      roughness: 0,
+      transparent: true,
+    });
+    this.cursorMesh = new THREE.Mesh(
+      cursorSphereGeometry,
+      cursorSphereMaterial
+    );
+    this.scene.add(this.cursorMesh);
+
+    // Create Saturn-like ring geometry
+    const ringGeometry = new THREE.TorusGeometry(0.2, 0.04, 16, 100);
+    const ringMaterial = new THREE.MeshStandardMaterial({
+      color: 0x9900cc,
+      emissive: 0x550077,
+      emissiveIntensity: 1.5,
+      metalness: 0.3,
+      roughness: 0.1,
+    });
+    this.ringMesh = new THREE.Mesh(ringGeometry, ringMaterial);
+    // this.ringMesh.rotation.x = Math.PI / 0.8; // Keep the ring fixed
+    this.scene.add(this.ringMesh);
   }
 
   private loadNodes(): void {
@@ -281,12 +322,118 @@ export class AppComponent implements OnInit, AfterViewInit {
     );
   }
 
+  toggleCameraLock(): void {
+    this.isCameraLocked = !this.isCameraLocked;
+    this.controls.enabled = !this.isCameraLocked;
+  }
+
+  // ─── CAMERA CONTROL HELPERS ────────────────────────────────────────────────
+
+  /** Rotate the camera around the target by ±15° about world‑Y */
+  rotateLeft() {
+    const angle = THREE.MathUtils.degToRad(15);
+    this.rotateAroundTarget(angle);
+  }
+
+  rotateRight() {
+    const angle = THREE.MathUtils.degToRad(-15);
+    this.rotateAroundTarget(angle);
+  }
+
+  private rotateAroundTarget(angleRad: number) {
+    // 1) vector from target → camera
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    // 2) rotate that vector about the world‑up axis (0,1,0)
+    offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), angleRad);
+    // 3) put camera back at target + rotated offset
+    this.camera.position.copy(this.controls.target).add(offset);
+    this.camera.lookAt(this.controls.target);
+    this.controls.update();
+  }
+
+  /** Pan the camera/target in screen‑space by 1 world‑unit */
+  panUp() {
+    this.pan(0, 1);
+  }
+  panDown() {
+    this.pan(0, -1);
+  }
+  panLeft() {
+    this.pan(1, 0);
+  }
+  panRight() {
+    this.pan(-1, 0);
+  }
+
+  private pan(deltaX: number, deltaY: number) {
+    // build a pan offset
+    const panOffset = new THREE.Vector3();
+    // right = cameraDir × up
+    const right = this.camera
+      .getWorldDirection(new THREE.Vector3())
+      .cross(this.camera.up)
+      .setLength(deltaX);
+    panOffset.add(right);
+    // up vector
+    const up = this.camera.up.clone().setLength(deltaY);
+    panOffset.add(up);
+
+    // apply to both camera and controls.target
+    this.camera.position.add(panOffset);
+    this.controls.target.add(panOffset);
+    this.controls.update();
+  }
+
+  /** Zoom in/out by scaling the distance to the target */
+  zoomIn() {
+    this.dolly(0.8);
+  }
+  zoomOut() {
+    this.dolly(1.2);
+  }
+
+  private dolly(scale: number) {
+    // vector from target → camera
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    // shorten/lengthen it
+    offset.multiplyScalar(scale);
+    // re‑position camera
+    this.camera.position.copy(this.controls.target).add(offset);
+    this.controls.update();
+  }
+
   private animate(): void {
     this.ngZone.runOutsideAngular(() => {
       const loop = () => {
         requestAnimationFrame(loop);
         this.controls.update();
         if (this.cluster) this.cluster.update();
+
+        const cameraToCursor = new THREE.Vector3();
+        cameraToCursor
+          .copy(this.camera.position)
+          .sub(this.ringMesh.position)
+          .normalize();
+
+        // Make the ring's up face that direction
+        this.ringMesh.lookAt(
+          this.ringMesh.position.clone().sub(cameraToCursor)
+        );
+
+        // Optional: Slight stylized tilt
+        this.ringMesh.rotation.x += 0.5;
+
+        // ---- new cursor logic ----
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const FIXED_DISTANCE = 6;
+        const cursorPos = this.camera.position
+          .clone()
+          .add(
+            this.raycaster.ray.direction.clone().multiplyScalar(FIXED_DISTANCE)
+          );
+        this.cursorMesh.position.copy(cursorPos);
+        this.ringMesh.position.copy(cursorPos);
+
         this.renderer.render(this.scene, this.camera);
       };
       loop();

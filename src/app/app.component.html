@@ -1,8 +1,50 @@
 <div class="app-wrapper">
   <canvas #rendererCanvas></canvas>
 
-  <!-- Floating + Button -->
-  <button class="add-node-button" (click)="onAddNode()">+</button>
+  <div class="camera-controls">
+    <button mat-icon-button (click)="onAddNode()" [matTooltip]="'Add Node'">
+      <mat-icon>add</mat-icon>
+    </button>
+
+    <!-- Rotate Group -->
+    <button mat-icon-button (click)="rotateLeft()" matTooltip="Rotate Left">
+      <mat-icon>rotate_left</mat-icon>
+    </button>
+    <button mat-icon-button (click)="rotateRight()" matTooltip="Rotate Right">
+      <mat-icon>rotate_right</mat-icon>
+    </button>
+
+    <!-- Pan -->
+    <button mat-icon-button (click)="panUp()" matTooltip="Pan Up">
+      <mat-icon>arrow_upward</mat-icon>
+    </button>
+    <button mat-icon-button (click)="panDown()" matTooltip="Pan Down">
+      <mat-icon>arrow_downward</mat-icon>
+    </button>
+    <button mat-icon-button (click)="panLeft()" matTooltip="Pan Left">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <button mat-icon-button (click)="panRight()" matTooltip="Pan Right">
+      <mat-icon>arrow_forward</mat-icon>
+    </button>
+
+    <!-- Zoom -->
+    <button mat-icon-button (click)="zoomIn()" matTooltip="Zoom In">
+      <mat-icon>zoom_in</mat-icon>
+    </button>
+    <button mat-icon-button (click)="zoomOut()" matTooltip="Zoom Out">
+      <mat-icon>zoom_out</mat-icon>
+    </button>
+
+    <button
+      mat-icon-button
+      class="lock-camera-button"
+      (click)="toggleCameraLock()"
+      [matTooltip]="isCameraLocked ? 'Unlock Camera' : 'Lock Camera'"
+    >
+      <mat-icon>{{ isCameraLocked ? "lock" : "lock_open" }}</mat-icon>
+    </button>
+  </div>
 
   <div #contextMenu class="context-menu">
     <h4 id="contextNodeName"></h4>
@@ -24,7 +66,11 @@
       <!-- Preferences Panel for Central Node -->
       <div *ngIf="selectedNode.isSun" class="panel">
         <div
-          *ngFor="let pref of selectedNode.preferences; let i = index; trackBy: trackByIndex"
+          *ngFor="
+            let pref of selectedNode.preferences;
+            let i = index;
+            trackBy: trackByIndex
+          "
           class="attribute-list"
         >
           <label>
@@ -44,7 +90,11 @@
       <!-- Attributes Panel for Non-Central Nodes -->
       <div *ngIf="!selectedNode.isSun" class="panel">
         <div
-          *ngFor="let attr of selectedNode.attributes; let i = index; trackBy: trackByIndex"
+          *ngFor="
+            let attr of selectedNode.attributes;
+            let i = index;
+            trackBy: trackByIndex
+          "
           class="attribute-list"
         >
           <label>

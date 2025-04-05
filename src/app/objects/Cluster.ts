@@ -15,12 +15,12 @@ export class Cluster extends THREE.Object3D {
       sun: {
         attraction: 1,
         repulsion: 1,
-        repulsionInitializationThreshold: 0.8,
+        repulsionInitializationThreshold: 0.4,
       },
       planet: {
         attraction: 1,
         repulsion: 1,
-        repulsionInitializationThreshold: 0.4,
+        repulsionInitializationThreshold: 0.2,
       },
       maxVelocity: 0.02,
       velocityDamping: 0.8,
@@ -44,5 +44,11 @@ export class Cluster extends THREE.Object3D {
 
   update(): void {
     this.nodes.forEach((node) => node.update(this.nodes));
+
+    // Bound the position within (-8, -8, -8) and (8, 8, 8)
+    const BOUND = 8;
+    this.position.x = THREE.MathUtils.clamp(this.position.x, -BOUND, BOUND);
+    this.position.y = THREE.MathUtils.clamp(this.position.y, -BOUND, BOUND);
+    this.position.z = THREE.MathUtils.clamp(this.position.z, -BOUND, BOUND);
   }
 }
