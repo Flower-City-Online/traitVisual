@@ -8,19 +8,7 @@ export function createSmokeTexture(): THREE.Texture {
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
-
-  const centerX = size / 2;
-  const centerY = size / 2;
-  const innerRadius = size * 0.05;
-  const outerRadius = size * 0.06;
-
-  // Base ring shape using a radial gradient.
-  const gradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, outerRadius);
-  gradient.addColorStop(0.0, 'rgba(255, 255, 255, 0)');
-  gradient.addColorStop(0.4, 'rgba(255, 255, 255, 1)');
-  gradient.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
-  ctx.fillStyle = gradient;
+  const ctx = canvas.g
   ctx.fillRect(0, 0, size, size);
 
   // Add random turbulence to the alpha channel.

@@ -146,9 +146,9 @@ export class Node extends THREE.Object3D {
           const compatibility = this.calculateAttributeCompatibility(other);
           const repulsion =
             this.options.planet.repulsion *
-              (this.options.planet.repulsionInitializationThreshold -
-                distance) *
-              (1 - compatibility) +
+            (this.options.planet.repulsionInitializationThreshold -
+              distance) *
+            (1 - compatibility) +
             0.001;
           const repulsionDirection = new THREE.Vector3()
             .subVectors(this.position, other.position)
