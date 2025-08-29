@@ -10,6 +10,10 @@ export class Node extends THREE.Object3D {
   preference: number = 0;
   mesh: THREE.Mesh;
   private sunBaseScale: number = 3;
+  private halo!: THREE.Mesh;
+  private coreSprite!: THREE.Sprite;
+  private haloSprite!: THREE.Sprite;
+  private readonly baseSphereRadius = 0.05; // geometry radius
   swap: ISwapAnimation | null = null;
 
   // Cursor influence removed — nodes are unaffected by cursor
@@ -30,57 +34,121 @@ export class Node extends THREE.Object3D {
       ? [...Object.values(data.preferences)]
       : Array.from({ length: 10 }, () => Math.floor(Math.random() * 99));
 
-    // Create a sphere mesh for visualization (theme-applied by role)
-    this.mesh = new THREE.Mesh(new THREE.SphereGeometry(0.05, 64, 64));
-    if (this.isSun) {
-      this.mesh.material = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#C300FF'),
-        emissive: new THREE.Color('#8A00B8'),
-        emissiveIntensity: 0.5,
-        metalness: 0.1,
-        roughness: 0.6,
-        flatShading: true,
-      });
-    } else {
-      this.mesh.material = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#FF3366'),
-        emissive: new THREE.Color('#B8004A'),
-        emissiveIntensity: 0.12,
-        metalness: 0.2,
-        roughness: 0.7,
-        clearcoat: 0.3,
-      });
-    }
+    // Create glowing core using additive Fresnel-like shader (center-bright)
+    const geom = new THREE.SphereGeometry(this.baseSphereRadius, 48, 48);
+    const coreMat = makeCoreGlowMaterial(
+      this.isSun ? new THREE.Color('#C300FF') : new THREE.Color('#FF3366'),
+      this.isSun ? 0.9 : 0.7,
+      3.5
+    );
+    this.mesh = new THREE.Mesh(geom, coreMat);
     this.add(this.mesh);
+
+    // Soft additive rim glow (BackSide Fresnel)
+    const haloMat = makeRimGlowMaterial(
+      this.isSun ? new THREE.Color('#C300FF') : new THREE.Color('#FF3366'),
+      this.isSun ? 0.22 : 0.16,
+      0.2,
+      2.2
+    );
+    this.halo = new THREE.Mesh(geom.clone(), haloMat);
+    this.halo.scale.setScalar(this.isSun ? 1.8 : 1.35);
+    this.add(this.halo);
+
+    // Camera-facing luminous core billboard to ensure visibility from all angles
+    this.coreSprite = this.createBillboardGlow(
+      this.isSun ? new THREE.Color('#C300FF') : new THREE.Color('#FF3366'),
+      this.isSun ? 0.8 : 0.6,
+      this.isSun ? 1.8 : 1.3
+    );
+    this.add(this.coreSprite);
+
+    // Softer, larger halo billboard (always-on rim feel)
+    this.halo.visible = false; // hide mesh halo; use sprite version for consistent view
+    this.haloSprite = this.createBillboardGlow(
+      this.isSun ? new THREE.Color('#C300FF') : new THREE.Color('#FF3366'),
+      this.isSun ? 0.25 : 0.18,
+      this.isSun ? 3.0 : 2.0
+    );
+    this.haloSprite.renderOrder = 18;
+    this.add(this.haloSprite);
   }
+
+  // (Sprite-based glow removed in favor of additive core + halo meshes)
+  private createBillboardGlow(color: THREE.Color, opacity: number, diameterMultiplier: number): THREE.Sprite {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const g = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+    g.addColorStop(0.0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.5, 'rgba(255,255,255,0.6)');
+    g.addColorStop(1.0, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    const material = new THREE.SpriteMaterial({
+      map: tex,
+      color,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+      depthTest: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const sprite = new THREE.Sprite(material);
+    const diameter = this.baseSphereRadius * 2 * diameterMultiplier;
+    sprite.scale.set(diameter, diameter, 1);
+    sprite.renderOrder = 20;
+    return sprite;
+  }
+
+  // (Size helper removed — halo scales relative to mesh directly)
 
   setSun(state: boolean = !this.isSun, preference?: number): void {
     this.isSun = state;
 
-    // Build a neomorphic‑style neon purple material
     if (state) {
-      this.mesh.material = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#C300FF'), // Neon purple primary
-        emissive: new THREE.Color('#8A00B8'), // Darker purple for the "glow" or highlight  
-        emissiveIntensity: 0.4, // Increased glow for more dramatic effect
-        metalness: 0.1, // Low metalness for soft, diffused light
-        roughness: 0.7, // Slightly lower roughness for more glow
-        flatShading: true, // Gives the surface a more 'flat' look which is common in neumorphism
-      });
-      // Apply a slight inset shadow effect by modifying the emissive and ambient lighting
-      this.mesh.material.side = THREE.DoubleSide;
-      this.mesh.material.shadowSide = THREE.FrontSide;
-      this.mesh.material.opacity = 1;
+      // Switch to neon purple glow-ball
+      const core = this.mesh.material as THREE.ShaderMaterial;
+      core.uniforms['glowColor'].value = new THREE.Color('#C300FF');
+      core.uniforms['opacity'].value = 0.9;
+      const halo = this.halo.material as THREE.ShaderMaterial;
+      halo.uniforms['glowColor'].value = new THREE.Color('#C300FF');
+      halo.uniforms['opacity'].value = 0.22;
+      this.halo.scale.setScalar(1.8);
+      // Billboard core
+      (this.coreSprite.material as THREE.SpriteMaterial).color = new THREE.Color('#C300FF');
+      (this.coreSprite.material as THREE.SpriteMaterial).opacity = 0.8;
+      const dSun = this.baseSphereRadius * 2 * 1.8;
+      this.coreSprite.scale.set(dSun, dSun, 1);
+      // Billboard halo
+      (this.haloSprite.material as THREE.SpriteMaterial).color = new THREE.Color('#C300FF');
+      (this.haloSprite.material as THREE.SpriteMaterial).opacity = 0.25;
+      const dSunHalo = this.baseSphereRadius * 2 * 3.0;
+      this.haloSprite.scale.set(dSunHalo, dSunHalo, 1);
     } else {
-      // fallback "planet" look with new theme colors
-      this.mesh.material = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#FF3366'), // Pink-red from new theme
-        emissive: new THREE.Color('#B8004A'), // Darker pink-red for subtle glow
-        emissiveIntensity: 0.1, // Subtle glow for planets
-        metalness: 0.2, // Slightly more metallic for contrast
-        roughness: 0.7, // Slightly smoother than sun
-        clearcoat: 0.3, // Add some clearcoat for depth
-      });
+      // Switch to pink-red glow-ball
+      const core = this.mesh.material as THREE.ShaderMaterial;
+      core.uniforms['glowColor'].value = new THREE.Color('#FF3366');
+      core.uniforms['opacity'].value = 0.7;
+      const halo = this.halo.material as THREE.ShaderMaterial;
+      halo.uniforms['glowColor'].value = new THREE.Color('#FF3366');
+      halo.uniforms['opacity'].value = 0.16;
+      this.halo.scale.setScalar(1.35);
+      // Billboard core
+      (this.coreSprite.material as THREE.SpriteMaterial).color = new THREE.Color('#FF3366');
+      (this.coreSprite.material as THREE.SpriteMaterial).opacity = 0.6;
+      const d = this.baseSphereRadius * 2 * 1.3;
+      this.coreSprite.scale.set(d, d, 1);
+      // Billboard halo
+      (this.haloSprite.material as THREE.SpriteMaterial).color = new THREE.Color('#FF3366');
+      (this.haloSprite.material as THREE.SpriteMaterial).opacity = 0.18;
+      const dHalo = this.baseSphereRadius * 2 * 2.0;
+      this.haloSprite.scale.set(dHalo, dHalo, 1);
     }
 
     if (preference !== undefined) {
@@ -181,14 +249,28 @@ export class Node extends THREE.Object3D {
     }
     // Cursor influence intentionally disabled: nodes should not orbit or be pulled by the cursor
     
-    // Sun: pulsate scale and glow for dramatic lighting
+    // Sun: pulsate core and halo for glowing-ball effect
     if (this.isSun) {
       const t = performance.now() * 0.001; // seconds
       const pulse = 1 + Math.sin(t * 2.0) * 0.06; // subtle pulsation
       const targetScale = this.sunBaseScale * pulse;
       this.mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.15);
-      const mat = this.mesh.material as THREE.MeshPhysicalMaterial;
-      mat.emissiveIntensity = 0.5 + (pulse - 1) * 2.0; // 0.38..0.62 approx
+      const core = this.mesh.material as THREE.ShaderMaterial;
+      core.uniforms['opacity'].value = 0.85 + (pulse - 1) * 0.6;
+      const haloMat = this.halo.material as THREE.ShaderMaterial;
+      haloMat.uniforms['opacity'].value = 0.20 + (pulse - 1) * 0.35;
+      const haloScale = 1.8 * (1 + (pulse - 1) * 0.25);
+      this.halo.scale.lerp(new THREE.Vector3(haloScale, haloScale, haloScale), 0.2);
+      // Billboard pulse
+      const baseD = this.baseSphereRadius * 2 * (1.8 * this.mesh.scale.x);
+      const d = baseD * (1 + (pulse - 1) * 0.2);
+      this.coreSprite.scale.lerp(new THREE.Vector3(d, d, 1), 0.15);
+      (this.coreSprite.material as THREE.SpriteMaterial).opacity = 0.75 + (pulse - 1) * 0.2;
+      // Halo sprite pulse
+      const baseDH = this.baseSphereRadius * 2 * (3.0 * this.mesh.scale.x);
+      const dH = baseDH * (1 + (pulse - 1) * 0.2);
+      this.haloSprite.scale.lerp(new THREE.Vector3(dH, dH, 1), 0.15);
+      (this.haloSprite.material as THREE.SpriteMaterial).opacity = 0.22 + (pulse - 1) * 0.1;
       return;
     }
     let totalForce = new THREE.Vector3();
@@ -198,9 +280,28 @@ export class Node extends THREE.Object3D {
 
       // Update planet glow based on compatibility with sun
       const compat = this.calculatePreferredCompatibility(sun); // 0..1
-      const mat = this.mesh.material as THREE.MeshPhysicalMaterial;
-      // Remap to subtle glow range for neomorphic aesthetic
-      mat.emissiveIntensity = 0.08 + compat * 0.5; // 0.08 .. 0.58
+      const core = this.mesh.material as THREE.ShaderMaterial;
+      core.uniforms['opacity'].value = 0.55 + compat * 0.4; // brighter core with compatibility
+      // Planet additive halo tightly around mesh
+      const haloMat = this.halo.material as THREE.ShaderMaterial;
+      const baseOpacity = 0.12 + compat * 0.25; // 0.12..0.37
+      let proximityBoost = 0;
+      if (cursorPosition) {
+        const d = this.position.distanceTo(cursorPosition);
+        proximityBoost = Math.max(0, 1 - d / 1.5) * 0.04; // very subtle
+      }
+      haloMat.uniforms['opacity'].value = Math.min(0.5, baseOpacity + proximityBoost);
+      const s = 1.35 * (1 + compat * 0.15);
+      this.halo.scale.lerp(new THREE.Vector3(s, s, s), 0.25);
+      // Billboard tuning for planets
+      const coreMat = this.coreSprite.material as THREE.SpriteMaterial;
+      coreMat.opacity = 0.45 + compat * 0.35 + proximityBoost * 0.2;
+      const d2 = this.baseSphereRadius * 2 * (1.3 + compat * 0.2) * this.mesh.scale.x;
+      this.coreSprite.scale.lerp(new THREE.Vector3(d2, d2, 1), 0.2);
+      const haloMatS = this.haloSprite.material as THREE.SpriteMaterial;
+      haloMatS.opacity = 0.16 + compat * 0.18 + proximityBoost * 0.1;
+      const d2h = this.baseSphereRadius * 2 * (2.0 + compat * 0.5) * this.mesh.scale.x;
+      this.haloSprite.scale.lerp(new THREE.Vector3(d2h, d2h, 1), 0.2);
     }
     totalForce.add(this.calculatePlanetRepulsion(nodes));
     totalForce.add(this.calculatePlanetAttraction(nodes));
@@ -234,3 +335,105 @@ export class Node extends THREE.Object3D {
     );
   }
 }
+
+// --- minimal glow shaders inspired by atmosphere/fresnel effect ---
+// Core: front-side, center-bright additive glow
+// Halo: back-side, rim glow additive
+
+type GlowUniforms = { glowColor: { value: THREE.Color }; opacity: { value: number }; c?: { value: number }; p?: { value: number } };
+
+function makeCoreGlowMaterial(
+  color: THREE.Color,
+  opacity = 0.8,
+  power = 3.5
+): THREE.ShaderMaterial {
+  const uniforms: GlowUniforms = {
+    glowColor: { value: color },
+    opacity: { value: opacity },
+    p: { value: power },
+  };
+  const vertex = `
+    varying vec3 vNormal;
+    varying vec3 vWorldPosition;
+    void main() {
+      vNormal = normalize(normalMatrix * normal);
+      vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+      vWorldPosition = worldPosition.xyz;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `;
+  const fragment = `
+    uniform vec3 glowColor;
+    uniform float opacity;
+    uniform float p;
+    varying vec3 vNormal;
+    varying vec3 vWorldPosition;
+    void main() {
+      vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+      // Center-bright: when normal faces camera (dot close to 1)
+      float intensity = pow(clamp(dot(vNormal, viewDir), 0.0, 1.0), p);
+      gl_FragColor = vec4(glowColor * intensity, intensity * opacity);
+    }
+  `;
+  return new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: vertex,
+    fragmentShader: fragment,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.FrontSide,
+  });
+}
+
+function makeRimGlowMaterial(
+  color: THREE.Color,
+  opacity = 0.2,
+  c = 0.2,
+  power = 2.2
+): THREE.ShaderMaterial {
+  const uniforms: GlowUniforms = {
+    glowColor: { value: color },
+    opacity: { value: opacity },
+    c: { value: c },
+    p: { value: power },
+  };
+  const vertex = `
+    varying vec3 vNormal;
+    varying vec3 vWorldPosition;
+    void main() {
+      vNormal = normalize(normalMatrix * normal);
+      vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+      vWorldPosition = worldPosition.xyz;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `;
+  const fragment = `
+    uniform vec3 glowColor;
+    uniform float opacity;
+    uniform float c;
+    uniform float p;
+    varying vec3 vNormal;
+    varying vec3 vWorldPosition;
+    void main() {
+      vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+      float intensity = pow(max(0.0, c - dot(vNormal, viewDir)), p);
+      gl_FragColor = vec4(glowColor, intensity * opacity);
+    }
+  `;
+  return new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: vertex,
+    fragmentShader: fragment,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.BackSide,
+  });
+}
+
+// Bind helpers to class for typed access
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(Node.prototype as any).makeCoreGlowMaterial = makeCoreGlowMaterial;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(Node.prototype as any).makeRimGlowMaterial = makeRimGlowMaterial;

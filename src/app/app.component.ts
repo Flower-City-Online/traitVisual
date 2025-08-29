@@ -78,6 +78,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   private starFieldNear!: THREE.Points;
   private starFieldFar!: THREE.Points;
   private starTexture: THREE.Texture | null = null;
+  private cursorLight!: THREE.PointLight;
 
   constructor(private renderer2: Renderer2, private ngZone: NgZone) {}
 
@@ -159,6 +160,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.scene.add(new THREE.AmbientLight(0xbbbbbb, 1)); // Add ambient light
     this.scene.add(new THREE.DirectionalLight(0xffffff, 1)); // Add directional light
 
+    // Soft point light that follows the cursor for ambient effect
+    this.cursorLight = new THREE.PointLight(0xC300FF, 0.22, 6, 2);
+    this.cursorLight.position.set(0, 0, 0);
+    this.cursorLight.castShadow = false;
+    this.scene.add(this.cursorLight);
+
     // Add immersive 3D starfields (behind everything)
     this.starFieldFar = this.createStarField({
       count: 1200,
@@ -194,6 +201,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     const initialCentral =
       this.cluster.nodes.find((node) => node.isSun) || this.cluster.nodes[0];
     initialCentral.setSun(true, 5);
+    // Ensure the sun reads clearly larger (affects sprite sizing too)
     initialCentral.mesh.scale.set(3, 3, 3);
   }
 
@@ -485,6 +493,13 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.starFieldNear && this.starFieldFar) {
           this.starFieldNear.rotation.y += 0.00025;
           this.starFieldFar.rotation.y += 0.0001;
+        }
+
+        // Cursor-follow light for ambient effect
+        if (this.cursorLight) {
+          this.cursorLight.position.copy(this.cursorMesh.position);
+          const tms = currentTime; // ms
+          this.cursorLight.intensity = 0.2 + Math.sin(tms * 0.003) * 0.035;
         }
 
         this.renderer.render(this.scene, this.camera);
