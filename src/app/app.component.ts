@@ -154,7 +154,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     // Create black hole cursor
     this.cursorMesh = this.createBlackHoleCursor();
     this.scene.add(this.cursorMesh);
-    
+
     // Create black hole particle field
     this.particleField = new BlackHoleParticleField(this.scene);
   }
@@ -392,9 +392,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private createBlackHoleCursor(): THREE.Mesh {
-    // Create visible glass sphere geometry 
+    // Create visible glass sphere geometry
     const glassGeometry = new THREE.SphereGeometry(0.3, 32, 32);
-    
+
     // Create black hole material - deep black with subtle transparency
     const glassMaterial = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(0.02, 0.02, 0.02), // Deep black
@@ -410,11 +410,11 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       envMapIntensity: 0.2, // Reduced for darker appearance
       // Subtle dark emissive glow for visibility
       emissive: new THREE.Color(0.01, 0.01, 0.01),
-      emissiveIntensity: 0.1
+      emissiveIntensity: 0.1,
     });
-    
+
     const glassSphere = new THREE.Mesh(glassGeometry, glassMaterial);
-    
+
     // Return just the sphere without any ring
     return glassSphere;
   }
@@ -422,15 +422,20 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   private animate(): void {
     this.ngZone.runOutsideAngular(() => {
       let lastTime = 0;
-      
+
       const loop = (currentTime: number) => {
         requestAnimationFrame(loop);
-        
+
         const deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
         lastTime = currentTime;
-        
+
         this.controls.update();
-        if (this.cluster) this.cluster.update(this.cursorMesh.position, this.scene, this.camera);
+        if (this.cluster)
+          this.cluster.update(
+            this.cursorMesh.position,
+            this.scene,
+            this.camera
+          );
 
         // Update black hole cursor position
         this.raycaster.setFromCamera(this.mouse, this.camera);
@@ -441,7 +446,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
             this.raycaster.ray.direction.clone().multiplyScalar(FIXED_DISTANCE)
           );
         this.cursorMesh.position.copy(cursorPos);
-        
+
         // Update particle field
         if (this.particleField) {
           this.particleField.update(this.cursorMesh.position, deltaTime);
@@ -452,7 +457,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       loop(0);
     });
   }
-  
+
   ngOnDestroy(): void {
     if (this.particleField) {
       this.particleField.dispose();
