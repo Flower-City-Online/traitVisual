@@ -448,9 +448,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       // Subtle dark emissive glow for visibility
       emissive: new THREE.Color(0.01, 0.01, 0.01),
       emissiveIntensity: 0.1,
+      depthWrite: true, // allow occlusion against particles
+      depthTest: true,
     });
 
     const glassSphere = new THREE.Mesh(glassGeometry, glassMaterial);
+    glassSphere.renderOrder = -0.5; // draw early so depth is written before particles
 
     // Return just the sphere without any ring
     return glassSphere;
@@ -486,7 +489,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
         // Update particle field
         if (this.particleField) {
-          this.particleField.update(this.cursorMesh.position, deltaTime);
+          this.particleField.update(this.cursorMesh.position, deltaTime, this.camera);
         }
 
         // Subtle starfield parallax for depth

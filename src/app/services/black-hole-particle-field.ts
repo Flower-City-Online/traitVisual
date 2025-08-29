@@ -3,13 +3,12 @@ import * as THREE from 'three';
 // A single orbiting bubble/particle around the black hole.
 // We switch from spline flow to true 3D orbits defined by a plane basis (u, v).
 export interface FlowParticle {
-  // Plane basis vectors (orthonormal) defining the orbital plane in LOCAL space
-  u: THREE.Vector3;
-  v: THREE.Vector3;
-  // Orbital params
+  // Arc category for controlled flow
+  type: 'top' | 'bottom' | 'orbit' | 'centerH';
+  // Orbital params (screen-plane aligned)
   radius: number; // local radius from center
-  angle: number; // current angle along orbit (radians)
-  angularSpeed: number; // radians per second (can be ±)
+  angle: number; // current angle along arc (radians)
+  angularSpeed: number; // radians per second (positive; direction by type)
   radialJitterAmp: number; // small breathing of radius
   radialJitterFreq: number; // Hz for radius jitter
 
@@ -29,7 +28,7 @@ export class BlackHoleParticleField {
   private particleSystem: THREE.Points | null = null;
 
   // Natural particle count for bubble-like effect
-  private particleCount: number = 100;
+  private particleCount: number = 70;
 
   // Visual parameters (unchanged)
   private readonly FIELD_RADIUS = 0.35; // visual extent for orbits
@@ -39,9 +38,9 @@ export class BlackHoleParticleField {
   private readonly NEON_PURPLE = new THREE.Color(0xc300ff);
   private readonly PINK_RED = new THREE.Color(0xff3366);
 
-  // Animation params (slightly faster bubble motion)
-  private readonly MIN_SPEED = 0.6; // radians/sec
-  private readonly MAX_SPEED = 2.2;
+  // Animation params (slower, smoother orbits)
+  private readonly MIN_SPEED = 0.4; // radians/sec
+  private readonly MAX_SPEED = 1.2;
   private readonly MIN_LIFETIME = 3.0;
   private readonly MAX_LIFETIME = 6.0;
 
@@ -71,44 +70,40 @@ export class BlackHoleParticleField {
   }
 
   private createNewParticle(): FlowParticle {
-    // Random orbital plane: pick a random normal vector
-    const n = new THREE.Vector3(
-      Math.random() * 2 - 1,
-      Math.random() * 2 - 1,
-      Math.random() * 2 - 1
-    ).normalize();
+    // Distribution: 40% top, 40% bottom, 10% full 360° orbit (vertical plane), 10% center-horizontal orbits
+    const rpick = Math.random();
+    const type: FlowParticle['type'] =
+      rpick < 0.4 ? 'top' : rpick < 0.8 ? 'bottom' : rpick < 0.9 ? 'orbit' : 'centerH';
 
-    // Build orthonormal basis (u, v) spanning the plane perpendicular to n
-    const tmp =
-      Math.abs(n.y) < 0.9
-        ? new THREE.Vector3(0, 1, 0)
-        : new THREE.Vector3(1, 0, 0);
-    const u = new THREE.Vector3().crossVectors(n, tmp).normalize();
-    const v = new THREE.Vector3().crossVectors(n, u).normalize();
+    // Keep orbits outside the black hole mesh
+    const rim = this.BLACK_HOLE_RADIUS * 1.22; // outer near‑rim band
+    const rimBand = 0.132; // 10% wider band
+    // For centerH, bias to near‑core band so it crosses in front/behind the BH
+    const centerMin = this.BLACK_HOLE_RADIUS * 1.05;
+    const centerMax = this.BLACK_HOLE_RADIUS * 1.15;
+    const radius =
+      type === 'centerH'
+        ? THREE.MathUtils.lerp(centerMin, centerMax, Math.random())
+        : rim + Math.random() * rimBand;
 
-    // Orbital parameters
-    // Keep orbits slightly outside the black hole mesh (15% margin)
-    const minRadius = this.BLACK_HOLE_RADIUS * 1.15;
-    const radius = THREE.MathUtils.lerp(
-      minRadius,
-      this.FIELD_RADIUS,
+    // Start at left rim (−π or +π)
+    let angle = type === 'bottom' ? -Math.PI : Math.PI; // 'orbit' & 'centerH' also start at left
+    angle += (Math.random() - 0.5) * 0.05; // tiny variance
+    const angularSpeed = THREE.MathUtils.lerp(
+      this.MIN_SPEED,
+      this.MAX_SPEED,
       Math.random()
     );
-    const angle = Math.random() * Math.PI * 2;
-    const angularSpeed =
-      THREE.MathUtils.lerp(this.MIN_SPEED, this.MAX_SPEED, Math.random()) *
-      (Math.random() < 0.5 ? -1 : 1);
 
-    // Subtle breathing to keep motion organic
-    const radialJitterAmp = radius * 0.05 * Math.random();
+    // Subtle breathing; even smaller for centerH so it never clips into core
+    const radialJitterAmp = radius * (type === 'centerH' ? 0.008 : 0.015) * Math.random();
     const radialJitterFreq = 0.5 + Math.random() * 1.0; // Hz
 
     const color =
       Math.random() < 0.7 ? this.NEON_PURPLE.clone() : this.PINK_RED.clone();
 
     return {
-      u,
-      v,
+      type,
       radius,
       angle,
       angularSpeed,
@@ -140,7 +135,13 @@ export class BlackHoleParticleField {
     // Initialize LOCAL positions (do NOT offset by anchor here)
     for (let i = 0; i < this.particleCount; i++) {
       const p = this.particles[i];
-      const xy = this.getLocalOrbitPos(p, 0); // initial position
+      const xy = this.getLocalOrbitPos(
+        p,
+        0,
+        new THREE.Vector3(1, 0, 0),
+        new THREE.Vector3(0, 1, 0),
+        new THREE.Vector3(0, 0, 1)
+      ); // initial position
       positions[i * 3 + 0] = xy.x;
       positions[i * 3 + 1] = xy.y;
       positions[i * 3 + 2] = xy.z;
@@ -248,7 +249,11 @@ export class BlackHoleParticleField {
    * Keeps the API you already use:
    *   update(this.cursorMesh.position, deltaTime)
    */
-  update(blackHolePosition: THREE.Vector3, deltaTime: number): void {
+  update(
+    blackHolePosition: THREE.Vector3,
+    deltaTime: number,
+    camera?: THREE.Camera
+  ): void {
     if (!this.particleSystem) return;
 
     // 1) Accept input, use full 3D coordinates with slight forward offset
@@ -275,23 +280,32 @@ export class BlackHoleParticleField {
     // (sizes/opacities kept for shader)
     const sizes = geom.getAttribute('size').array as Float32Array;
 
-    // 3) Animate along the LOCAL splines
+    // 3) Animate along camera‑aligned arcs
+    // Build camera basis (right/up/forward)
+    const forward = new THREE.Vector3(0, 0, 1);
+    const camUp = new THREE.Vector3(0, 1, 0);
+    if (camera) {
+      camera.getWorldDirection(forward);
+      camUp.copy(camera.up).normalize();
+    }
+    const right = new THREE.Vector3().crossVectors(forward, camUp).normalize();
+    const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+
     for (let i = 0; i < this.particles.length; i++) {
       let p = this.particles[i];
 
       p.age += deltaTime;
-      p.angle += p.angularSpeed * deltaTime;
-
-      // Gentle precession (very slow rotation of the plane around world Z)
-      // Keep it subtle to avoid nausea and maintain performance
-      if (Math.random() < 0.02) {
-        const precess = (Math.random() - 0.5) * 0.02;
-        const q = new THREE.Quaternion().setFromAxisAngle(
-          new THREE.Vector3(0, 0, 1),
-          precess
-        );
-        p.u.applyQuaternion(q).normalize();
-        p.v.applyQuaternion(q).normalize();
+      // Direction per type: ensure left→right sweep
+      if (p.type === 'top') {
+        p.angle -= p.angularSpeed * deltaTime; // clockwise over top arc
+        if (p.angle < 0) p.angle = Math.PI + (Math.random() - 0.5) * 0.1;
+      } else if (p.type === 'bottom') {
+        p.angle += p.angularSpeed * deltaTime; // counterclockwise over bottom arc
+        if (p.angle > 0) p.angle = -Math.PI + (Math.random() - 0.5) * 0.1;
+      } else if (p.type === 'orbit') {
+        // continuous 360° revolution (left→right→left...), stay outside core
+        p.angle += p.angularSpeed * deltaTime;
+        if (p.angle > Math.PI) p.angle -= Math.PI * 2;
       }
 
       if (p.age >= p.lifetime) {
@@ -303,7 +317,7 @@ export class BlackHoleParticleField {
         sizes[i] = p.size;
       }
 
-      const local = this.getLocalOrbitPos(p, p.age);
+      const local = this.getLocalOrbitPos(p, p.age, right, up, forward);
 
       positions[i * 3 + 0] = local.x;
       positions[i * 3 + 1] = local.y;
@@ -318,17 +332,31 @@ export class BlackHoleParticleField {
 
   // Compute local position on the orbit for a particle at its current angle,
   // adding a subtle radial breathing.
-  private getLocalOrbitPos(p: FlowParticle, age: number): THREE.Vector3 {
-    const jitter =
-      p.radialJitterAmp * Math.sin(age * 2 * Math.PI * p.radialJitterFreq);
-    const r = Math.max(0.001, p.radius + jitter);
+  private getLocalOrbitPos(
+    p: FlowParticle,
+    age: number,
+    right: THREE.Vector3,
+    up: THREE.Vector3,
+    forward: THREE.Vector3
+  ): THREE.Vector3 {
+    const jitter = p.radialJitterAmp * Math.sin(age * 2 * Math.PI * p.radialJitterFreq);
+    let r = Math.max(0.001, p.radius + jitter);
     const cosA = Math.cos(p.angle);
     const sinA = Math.sin(p.angle);
     const out = new THREE.Vector3();
-    out
-      .copy(p.u)
-      .multiplyScalar(r * cosA)
-      .add(p.v.clone().multiplyScalar(r * sinA));
+    if (p.type === 'centerH') {
+      // revolve in right-forward plane near the core; small vertical wobble
+      out.copy(right).multiplyScalar(r * cosA);
+      out.add(forward.clone().multiplyScalar(r * sinA));
+      const wobble = 0.008 * Math.sin(age * 0.9 + cosA * 0.5);
+      out.add(up.clone().multiplyScalar(wobble));
+    } else {
+      // top/bottom/orbit in right-up plane; small forward depth motion
+      const depth = 0.02 * Math.sin(age * 0.8);
+      out.copy(right).multiplyScalar(r * cosA);
+      out.add(up.clone().multiplyScalar(r * sinA));
+      out.add(forward.clone().multiplyScalar(depth));
+    }
     return out;
   }
 
