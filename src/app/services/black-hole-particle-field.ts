@@ -33,7 +33,8 @@ export class BlackHoleParticleField {
 
   // Visual parameters (unchanged)
   private readonly FIELD_RADIUS = 0.35; // visual extent for orbits
-  private readonly BLACK_HOLE_RADIUS = 0.2;
+  // Match cursor sphere radius in AppComponent.createBlackHoleCursor (0.3)
+  private readonly BLACK_HOLE_RADIUS = 0.3;
 
   private readonly NEON_PURPLE = new THREE.Color(0xc300ff);
   private readonly PINK_RED = new THREE.Color(0xff3366);
@@ -83,7 +84,9 @@ export class BlackHoleParticleField {
     const v = new THREE.Vector3().crossVectors(n, u).normalize();
 
     // Orbital parameters
-    const radius = THREE.MathUtils.lerp(this.BLACK_HOLE_RADIUS * 0.9, this.FIELD_RADIUS, Math.random());
+    // Keep orbits slightly outside the black hole mesh (15% margin)
+    const minRadius = this.BLACK_HOLE_RADIUS * 1.15;
+    const radius = THREE.MathUtils.lerp(minRadius, this.FIELD_RADIUS, Math.random());
     const angle = Math.random() * Math.PI * 2;
     const angularSpeed = THREE.MathUtils.lerp(this.MIN_SPEED, this.MAX_SPEED, Math.random()) * (Math.random() < 0.5 ? -1 : 1);
 
@@ -241,8 +244,8 @@ export class BlackHoleParticleField {
     const y = blackHolePosition?.y;
     const z = blackHolePosition?.z;
     if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
-      // Move particles much further forward so they're clearly visible
-      this.targetAnchor.set(x, y, z + 0.7);
+      // Anchor exactly at the black hole position (no world-Z offset)
+      this.targetAnchor.set(x, y, z);
     }
     // Smooth follow to avoid jitter (and hide any one-frame glitches)
     this.anchor.lerp(this.targetAnchor, this.anchorLerp);
