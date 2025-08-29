@@ -10,6 +10,7 @@ export class Node extends THREE.Object3D {
   preferences: number[];
   preference: number = 0;
   mesh: THREE.Mesh;
+  private sunBaseScale: number = 3;
   swap: ISwapAnimation | null = null;
 
   // Cursor influence properties
@@ -40,16 +41,27 @@ export class Node extends THREE.Object3D {
       ? [...Object.values(data.preferences)]
       : Array.from({ length: 10 }, () => Math.floor(Math.random() * 99));
 
-    // Create a sphere mesh for visualization
-    const sphereColor = new THREE.Color(data.color);
-    this.mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.05, 64, 64),
-      new THREE.MeshStandardMaterial({
-        color: sphereColor,
-        metalness: 0.5,
-        roughness: 0.3,
-      })
-    );
+    // Create a sphere mesh for visualization (theme-applied by role)
+    this.mesh = new THREE.Mesh(new THREE.SphereGeometry(0.05, 64, 64));
+    if (this.isSun) {
+      this.mesh.material = new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color('#C300FF'),
+        emissive: new THREE.Color('#8A00B8'),
+        emissiveIntensity: 0.5,
+        metalness: 0.1,
+        roughness: 0.6,
+        flatShading: true,
+      });
+    } else {
+      this.mesh.material = new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color('#FF3366'),
+        emissive: new THREE.Color('#B8004A'),
+        emissiveIntensity: 0.12,
+        metalness: 0.2,
+        roughness: 0.7,
+        clearcoat: 0.3,
+      });
+    }
     this.add(this.mesh);
   }
 
@@ -190,11 +202,26 @@ export class Node extends THREE.Object3D {
       return;
     }
     
-    if (this.isSun) return;
+    // Sun: pulsate scale and glow for dramatic lighting
+    if (this.isSun) {
+      const t = performance.now() * 0.001; // seconds
+      const pulse = 1 + Math.sin(t * 2.0) * 0.06; // subtle pulsation
+      const targetScale = this.sunBaseScale * pulse;
+      this.mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.15);
+      const mat = this.mesh.material as THREE.MeshPhysicalMaterial;
+      mat.emissiveIntensity = 0.5 + (pulse - 1) * 2.0; // 0.38..0.62 approx
+      return;
+    }
     let totalForce = new THREE.Vector3();
     const sun = nodes.find((n) => n.isSun);
     if (sun) {
       totalForce.add(this.calculateSunForce(sun));
+
+      // Update planet glow based on compatibility with sun
+      const compat = this.calculatePreferredCompatibility(sun); // 0..1
+      const mat = this.mesh.material as THREE.MeshPhysicalMaterial;
+      // Remap to subtle glow range for neomorphic aesthetic
+      mat.emissiveIntensity = 0.08 + compat * 0.5; // 0.08 .. 0.58
     }
     totalForce.add(this.calculatePlanetRepulsion(nodes));
     totalForce.add(this.calculatePlanetAttraction(nodes));

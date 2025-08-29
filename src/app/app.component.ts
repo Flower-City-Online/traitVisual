@@ -74,6 +74,11 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   private cursorMesh!: THREE.Mesh;
   private particleField!: BlackHoleParticleField;
 
+  // 3D starfield layers
+  private starFieldNear!: THREE.Points;
+  private starFieldFar!: THREE.Points;
+  private starTexture: THREE.Texture | null = null;
+
   constructor(private renderer2: Renderer2, private ngZone: NgZone) {}
 
   ngOnInit(): void {
@@ -144,12 +149,36 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvasRef.nativeElement, // The canvas to render to
       antialias: true, // Smooth rendering
+      alpha: true, // allow CSS background/gradients to show through
     });
+    // Make the WebGL canvas transparent so CSS gradient + stars are visible
+    this.renderer.setClearColor(0x000000, 0);
     this.renderer.setSize(window.innerWidth, window.innerHeight); // Set size of renderer
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true; // Enables smooth transitions when dragging
     this.scene.add(new THREE.AmbientLight(0xbbbbbb, 1)); // Add ambient light
     this.scene.add(new THREE.DirectionalLight(0xffffff, 1)); // Add directional light
+
+    // Add immersive 3D starfields (behind everything)
+    this.starFieldFar = this.createStarField({
+      count: 1200,
+      innerRadius: 120,
+      outerRadius: 170,
+      size: 1,
+      opacity: 0.6,
+    });
+    this.starFieldFar.renderOrder = -2;
+    this.scene.add(this.starFieldFar);
+
+    this.starFieldNear = this.createStarField({
+      count: 200,
+      innerRadius: 60,
+      outerRadius: 110,
+      size: 1.2,
+      opacity: 0.75,
+    });
+    this.starFieldNear.renderOrder = -1;
+    this.scene.add(this.starFieldNear);
 
     // Create black hole cursor
     this.cursorMesh = this.createBlackHoleCursor();
@@ -452,6 +481,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
           this.particleField.update(this.cursorMesh.position, deltaTime);
         }
 
+        // Subtle starfield parallax for depth
+        if (this.starFieldNear && this.starFieldFar) {
+          this.starFieldNear.rotation.y += 0.00025;
+          this.starFieldFar.rotation.y += 0.0001;
+        }
+
         this.renderer.render(this.scene, this.camera);
       };
       loop(0);
@@ -462,5 +497,98 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.particleField) {
       this.particleField.dispose();
     }
+  }
+
+  // ─── STARFIELD ───────────────────────────────────────────────────────────
+  private createStarField(opts: {
+    count: number;
+    innerRadius: number;
+    outerRadius: number;
+    size: number;
+    opacity: number;
+  }): THREE.Points {
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(opts.count * 3);
+    const colors = new Float32Array(opts.count * 3);
+
+    for (let i = 0; i < opts.count; i++) {
+      // Random direction on the sphere
+      const dir = new THREE.Vector3(
+        Math.random() * 2 - 1,
+        Math.random() * 2 - 1,
+        Math.random() * 2 - 1
+      ).normalize();
+      // Random distance between inner and outer to form a shell
+      const r = THREE.MathUtils.lerp(
+        opts.innerRadius,
+        opts.outerRadius,
+        Math.random()
+      );
+      const pos = dir.multiplyScalar(r);
+      positions[i * 3 + 0] = pos.x;
+      positions[i * 3 + 1] = pos.y;
+      positions[i * 3 + 2] = pos.z;
+
+      // Slight warm/cool tint for variety (aligned to theme)
+      const warm = Math.random() < 0.45;
+      const c = warm
+        ? new THREE.Color(1.0, 0.92 + Math.random() * 0.05, 0.98) // warm pink-ish white
+        : new THREE.Color(0.92, 0.95 + Math.random() * 0.04, 1.0); // cool bluish white
+      colors[i * 3 + 0] = c.r;
+      colors[i * 3 + 1] = c.g;
+      colors[i * 3 + 2] = c.b;
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const material = new THREE.PointsMaterial({
+      size: opts.size,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: opts.opacity,
+      depthWrite: false,
+      vertexColors: true,
+      blending: THREE.AdditiveBlending,
+      map: this.getStarTexture(),
+      alphaMap: this.getStarTexture(),
+    });
+    material.alphaTest = 0.15; // cut square edges
+
+    const points = new THREE.Points(geometry, material);
+    points.frustumCulled = false;
+    return points;
+  }
+
+  // Create and cache a small circular gradient texture for round stars
+  private getStarTexture(): THREE.Texture {
+    if (this.starTexture) return this.starTexture;
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const g = ctx.createRadialGradient(
+      size / 2,
+      size / 2,
+      0,
+      size / 2,
+      size / 2,
+      size / 2
+    );
+    // soft core to transparent edge
+    g.addColorStop(0.0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.4, 'rgba(255,255,255,0.9)');
+    g.addColorStop(0.7, 'rgba(255,255,255,0.4)');
+    g.addColorStop(1.0, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.anisotropy = 2;
+    texture.needsUpdate = true;
+    this.starTexture = texture;
+    return texture;
   }
 }

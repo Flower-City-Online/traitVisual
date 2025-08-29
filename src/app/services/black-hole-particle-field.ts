@@ -29,7 +29,7 @@ export class BlackHoleParticleField {
   private particleSystem: THREE.Points | null = null;
 
   // Natural particle count for bubble-like effect
-  private particleCount: number = 50;
+  private particleCount: number = 100;
 
   // Visual parameters (unchanged)
   private readonly FIELD_RADIUS = 0.35; // visual extent for orbits
@@ -79,22 +79,32 @@ export class BlackHoleParticleField {
     ).normalize();
 
     // Build orthonormal basis (u, v) spanning the plane perpendicular to n
-    const tmp = Math.abs(n.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+    const tmp =
+      Math.abs(n.y) < 0.9
+        ? new THREE.Vector3(0, 1, 0)
+        : new THREE.Vector3(1, 0, 0);
     const u = new THREE.Vector3().crossVectors(n, tmp).normalize();
     const v = new THREE.Vector3().crossVectors(n, u).normalize();
 
     // Orbital parameters
     // Keep orbits slightly outside the black hole mesh (15% margin)
     const minRadius = this.BLACK_HOLE_RADIUS * 1.15;
-    const radius = THREE.MathUtils.lerp(minRadius, this.FIELD_RADIUS, Math.random());
+    const radius = THREE.MathUtils.lerp(
+      minRadius,
+      this.FIELD_RADIUS,
+      Math.random()
+    );
     const angle = Math.random() * Math.PI * 2;
-    const angularSpeed = THREE.MathUtils.lerp(this.MIN_SPEED, this.MAX_SPEED, Math.random()) * (Math.random() < 0.5 ? -1 : 1);
+    const angularSpeed =
+      THREE.MathUtils.lerp(this.MIN_SPEED, this.MAX_SPEED, Math.random()) *
+      (Math.random() < 0.5 ? -1 : 1);
 
     // Subtle breathing to keep motion organic
     const radialJitterAmp = radius * 0.05 * Math.random();
     const radialJitterFreq = 0.5 + Math.random() * 1.0; // Hz
 
-    const color = Math.random() < 0.7 ? this.NEON_PURPLE.clone() : this.PINK_RED.clone();
+    const color =
+      Math.random() < 0.7 ? this.NEON_PURPLE.clone() : this.PINK_RED.clone();
 
     return {
       u,
@@ -107,7 +117,9 @@ export class BlackHoleParticleField {
       size: 1.0 + Math.random() * 3.0,
       color,
       opacity: 0.85,
-      lifetime: this.MIN_LIFETIME + Math.random() * (this.MAX_LIFETIME - this.MIN_LIFETIME),
+      lifetime:
+        this.MIN_LIFETIME +
+        Math.random() * (this.MAX_LIFETIME - this.MIN_LIFETIME),
       age: Math.random() * 0.5,
     };
   }
@@ -274,7 +286,10 @@ export class BlackHoleParticleField {
       // Keep it subtle to avoid nausea and maintain performance
       if (Math.random() < 0.02) {
         const precess = (Math.random() - 0.5) * 0.02;
-        const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), precess);
+        const q = new THREE.Quaternion().setFromAxisAngle(
+          new THREE.Vector3(0, 0, 1),
+          precess
+        );
         p.u.applyQuaternion(q).normalize();
         p.v.applyQuaternion(q).normalize();
       }
@@ -304,12 +319,16 @@ export class BlackHoleParticleField {
   // Compute local position on the orbit for a particle at its current angle,
   // adding a subtle radial breathing.
   private getLocalOrbitPos(p: FlowParticle, age: number): THREE.Vector3 {
-    const jitter = p.radialJitterAmp * Math.sin(age * 2 * Math.PI * p.radialJitterFreq);
+    const jitter =
+      p.radialJitterAmp * Math.sin(age * 2 * Math.PI * p.radialJitterFreq);
     const r = Math.max(0.001, p.radius + jitter);
     const cosA = Math.cos(p.angle);
     const sinA = Math.sin(p.angle);
     const out = new THREE.Vector3();
-    out.copy(p.u).multiplyScalar(r * cosA).add(p.v.clone().multiplyScalar(r * sinA));
+    out
+      .copy(p.u)
+      .multiplyScalar(r * cosA)
+      .add(p.v.clone().multiplyScalar(r * sinA));
     return out;
   }
 

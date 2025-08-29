@@ -6,14 +6,14 @@
 html {
   @include mat.theme((
     color: (
-      theme-type: light,
-      primary: mat.$azure-palette,
-      tertiary: mat.$blue-palette,
+      theme-type: dark,
+      // Keep Material minimal since we style neon ourselves
     ),
     typography: Roboto,
     density: 0,
   ));
-}/* You can add global styles to this file, and also import other style files */
+}
+/* You can add global styles to this file, and also import other style files */
 * {
   margin: 0;
   padding: 0;
@@ -23,7 +23,8 @@ html {
 body {
   width: 100%;
   height: 100vh;
-  // overflow: hidden;
+  background: #1A1A1A;
+  color: #eaeaea;
 }
 html, body { height: 100%; }
 body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
