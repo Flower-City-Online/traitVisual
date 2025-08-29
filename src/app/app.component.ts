@@ -68,9 +68,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   newNodeCounter: number = 1;
   isCameraLocked = false;
 
-  // Cursor objects
+  // Black hole cursor
   private cursorMesh!: THREE.Mesh;
-  private ringMesh!: THREE.Mesh;
 
   constructor(private renderer2: Renderer2, private ngZone: NgZone) {}
 
@@ -149,32 +148,9 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.scene.add(new THREE.AmbientLight(0xbbbbbb, 1)); // Add ambient light
     this.scene.add(new THREE.DirectionalLight(0xffffff, 1)); // Add directional light
 
-    // Create custom cursor geometry
-    const cursorSphereGeometry = new THREE.SphereGeometry(0.2, 128, 128);
-    const cursorSphereMaterial = new THREE.MeshStandardMaterial({
-      color: 0xaaaaaa,
-      metalness: 1.0,
-      roughness: 0,
-      transparent: true,
-    });
-    this.cursorMesh = new THREE.Mesh(
-      cursorSphereGeometry,
-      cursorSphereMaterial
-    );
+    // Create black hole cursor
+    this.cursorMesh = this.createBlackHoleCursor();
     this.scene.add(this.cursorMesh);
-
-    // Create Saturn-like ring geometry
-    const ringGeometry = new THREE.TorusGeometry(0.2, 0.04, 16, 100);
-    const ringMaterial = new THREE.MeshStandardMaterial({
-      color: 0x9900cc,
-      emissive: 0x550077,
-      emissiveIntensity: 1.5,
-      metalness: 0.3,
-      roughness: 0.1,
-    });
-    this.ringMesh = new THREE.Mesh(ringGeometry, ringMaterial);
-    // this.ringMesh.rotation.x = Math.PI / 0.8; // Keep the ring fixed
-    this.scene.add(this.ringMesh);
   }
 
   private loadNodes(): void {
@@ -409,28 +385,42 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.controls.update();
   }
 
+  private createBlackHoleCursor(): THREE.Mesh {
+    // Create visible glass sphere geometry 
+    const glassGeometry = new THREE.SphereGeometry(0.3, 32, 32);
+    
+    // Create black hole material - deep black with subtle transparency
+    const glassMaterial = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(0.02, 0.02, 0.02), // Deep black
+      transparent: true,
+      opacity: 0.8, // More opaque for black hole effect
+      transmission: 0.3, // Reduced transmission for darker appearance
+      roughness: 0.1, // Smooth surface
+      metalness: 0.0,
+      clearcoat: 1.0, // Glossy coating
+      clearcoatRoughness: 0.1,
+      ior: 1.4, // Glass refraction index
+      thickness: 0.8, // Thicker for more dramatic effect
+      envMapIntensity: 0.2, // Reduced for darker appearance
+      // Subtle dark emissive glow for visibility
+      emissive: new THREE.Color(0.01, 0.01, 0.01),
+      emissiveIntensity: 0.1
+    });
+    
+    const glassSphere = new THREE.Mesh(glassGeometry, glassMaterial);
+    
+    // Return just the sphere without any ring
+    return glassSphere;
+  }
+
   private animate(): void {
     this.ngZone.runOutsideAngular(() => {
       const loop = () => {
         requestAnimationFrame(loop);
         this.controls.update();
-        if (this.cluster) this.cluster.update();
+        if (this.cluster) this.cluster.update(this.cursorMesh.position, this.scene, this.camera);
 
-        const cameraToCursor = new THREE.Vector3();
-        cameraToCursor
-          .copy(this.camera.position)
-          .sub(this.ringMesh.position)
-          .normalize();
-
-        // Make the ring's up face that direction
-        this.ringMesh.lookAt(
-          this.ringMesh.position.clone().sub(cameraToCursor)
-        );
-
-        // Optional: Slight stylized tilt
-        this.ringMesh.rotation.x += 0.5;
-
-        // ---- new cursor logic ----
+        // Update black hole cursor position
         this.raycaster.setFromCamera(this.mouse, this.camera);
         const FIXED_DISTANCE = 6;
         const cursorPos = this.camera.position
@@ -439,7 +429,6 @@ export class AppComponent implements OnInit, AfterViewInit {
             this.raycaster.ray.direction.clone().multiplyScalar(FIXED_DISTANCE)
           );
         this.cursorMesh.position.copy(cursorPos);
-        this.ringMesh.position.copy(cursorPos);
 
         this.renderer.render(this.scene, this.camera);
       };

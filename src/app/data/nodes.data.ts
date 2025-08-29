@@ -14,7 +14,7 @@ function randomPositionFixed(distance: number): Vector3 {
   return pos.normalize().multiplyScalar(distance);
 }
 
-const colors = ['#60a5fa', '#c084fc']; // Tailwind blue-400 and purple-400
+const colors = ['#C300FF', '#FF3366']; // Neon purple and pink-red theme
 
 export const nodeData: INodeData[] = [
   {
@@ -22,7 +22,7 @@ export const nodeData: INodeData[] = [
     name: 'James',
     initialPosition: [0, 0, 0],
     isSun: true,
-    color: '#c084fc', // Purple for Sun
+    color: '#C300FF', // Neon purple for Sun
     attributes: { attrOne: 0, attrTwo: 0, attrThree: 0 },
     preferences: { attrOne: 100, attrTwo: 100, attrThree: 100 },
   },

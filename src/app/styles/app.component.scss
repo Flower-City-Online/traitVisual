@@ -3,7 +3,7 @@
   display: flex;
   width: 100vw;
   position: relative;
-  background: #120012;
+  background: #0A0008;
 }
 
 canvas {
@@ -17,13 +17,13 @@ canvas {
 .context-menu {
   position: absolute;
   display: none;
-  background: #1a001a;
-  color: #9900ff;
+  background: #150008;
+  color: #C300FF;
   border-radius: 12px;
   border: none;
   padding: 12px;
   box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.5),
-    -4px -4px 10px rgba(255, 0, 255, 0.2);
+    -4px -4px 10px rgba(195, 0, 255, 0.2);
   z-index: 1000;
   max-width: 320px;
 }
@@ -37,8 +37,8 @@ canvas {
 }
 
 .context-menu button {
-  background: #330033;
-  color: #ff99ff;
+  background: #2B0015;
+  color: #FF3366;
   border: none;
   padding: 8px 12px;
   margin: 5px 0;
@@ -46,33 +46,33 @@ canvas {
   font-size: 14px;
   transition: 0.3s ease-in-out;
   box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5),
-    -4px -4px 8px rgba(255, 0, 255, 0.2);
+    -4px -4px 8px rgba(255, 51, 102, 0.2);
 }
 
 .context-menu button:hover {
-  background: #550055;
+  background: #4D0026;
   box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.6),
-    inset -2px -2px 5px rgba(255, 0, 255, 0.3);
+    inset -2px -2px 5px rgba(195, 0, 255, 0.3);
 }
 
 .context-menu button:disabled {
-  background: #3e001e;
-  color: #aa4c7b;
+  background: #2B0015;
+  color: #B85A7A;
   cursor: not-allowed;
   box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.8),
     inset -2px -2px 5px rgba(100, 0, 0, 0.3);
 }
 
 .context-menu .disabled-button {
-  background: #660000;
-  color: #ff6666;
-  box-shadow: inset 3px 3px 8px rgba(255, 0, 0, 0.3),
-    inset -3px -3px 8px rgba(100, 0, 0, 0.5);
+  background: #4D001A;
+  color: #FF3366;
+  box-shadow: inset 3px 3px 8px rgba(195, 0, 255, 0.3),
+    inset -3px -3px 8px rgba(255, 51, 102, 0.5);
 }
 
 .context-menu .panel {
   margin-top: 12px;
-  border-top: 1px solid #550055;
+  border-top: 1px solid #C300FF;
   padding-top: 8px;
 }
 
@@ -87,7 +87,7 @@ canvas {
 .attribute-list input[type="range"] {
   flex: 1;
   margin: 0 8px;
-  accent-color: #ff99ff;
+  accent-color: #FF3366;
 }
 
 :host {

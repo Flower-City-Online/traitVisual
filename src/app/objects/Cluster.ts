@@ -42,8 +42,8 @@ export class Cluster extends THREE.Object3D {
     });
   }
 
-  update(): void {
-    this.nodes.forEach((node) => node.update(this.nodes));
+  update(cursorPosition?: THREE.Vector3, scene?: THREE.Scene, camera?: THREE.Camera): void {
+    this.nodes.forEach((node) => node.update(this.nodes, cursorPosition, scene, camera));
 
     // Bound the position within (-8, -8, -8) and (8, 8, 8)
     const BOUND = 8;
