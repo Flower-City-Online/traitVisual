@@ -5,6 +5,7 @@ import {
   ElementRef,
   OnInit,
   AfterViewInit,
+  OnDestroy,
   ViewChild,
   Renderer2,
   NgZone,
@@ -17,6 +18,7 @@ import { Cluster } from './objects/Cluster';
 import { Node } from './objects/Node';
 import { handleRightClick } from './utils/on-right-click.util';
 import { addNode, removeNode } from './services/node-actions';
+import { BlackHoleParticleField } from './services/black-hole-particle-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -34,7 +36,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   templateUrl: './app.component.html',
   styleUrls: ['./styles/app.component.scss', './styles/control-panel.scss'],
 })
-export class AppComponent implements OnInit, AfterViewInit {
+export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('rendererCanvas', { static: true }) canvasRef!: ElementRef;
   @ViewChild('tooltip', { static: true }) tooltipRef!: ElementRef;
   @ViewChild('dropdown', { static: true }) dropdownRef!: ElementRef;
@@ -70,6 +72,7 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   // Black hole cursor
   private cursorMesh!: THREE.Mesh;
+  private particleField!: BlackHoleParticleField;
 
   constructor(private renderer2: Renderer2, private ngZone: NgZone) {}
 
@@ -151,6 +154,9 @@ export class AppComponent implements OnInit, AfterViewInit {
     // Create black hole cursor
     this.cursorMesh = this.createBlackHoleCursor();
     this.scene.add(this.cursorMesh);
+    
+    // Create black hole particle field
+    this.particleField = new BlackHoleParticleField(this.scene);
   }
 
   private loadNodes(): void {
@@ -415,8 +421,14 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   private animate(): void {
     this.ngZone.runOutsideAngular(() => {
-      const loop = () => {
+      let lastTime = 0;
+      
+      const loop = (currentTime: number) => {
         requestAnimationFrame(loop);
+        
+        const deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
+        lastTime = currentTime;
+        
         this.controls.update();
         if (this.cluster) this.cluster.update(this.cursorMesh.position, this.scene, this.camera);
 
@@ -429,10 +441,21 @@ export class AppComponent implements OnInit, AfterViewInit {
             this.raycaster.ray.direction.clone().multiplyScalar(FIXED_DISTANCE)
           );
         this.cursorMesh.position.copy(cursorPos);
+        
+        // Update particle field
+        if (this.particleField) {
+          this.particleField.update(this.cursorMesh.position, deltaTime);
+        }
 
         this.renderer.render(this.scene, this.camera);
       };
-      loop();
+      loop(0);
     });
+  }
+  
+  ngOnDestroy(): void {
+    if (this.particleField) {
+      this.particleField.dispose();
+    }
   }
 }
